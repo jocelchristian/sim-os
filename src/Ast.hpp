@@ -65,9 +65,9 @@ struct [[nodiscard]] Ast final
     std::vector<Statement>  statements;
     std::vector<Expression> expressions;
 
-    [[nodiscard]] auto statement_by_id(const std::size_t id) -> Statement { return statements[id]; }
+    [[nodiscard]] auto statement_by_id(const std::size_t id) const -> Statement { return statements[id]; }
 
-    [[nodiscard]] auto expression_by_id(const std::size_t id) -> Expression { return expressions[id]; }
+    [[nodiscard]] auto expression_by_id(const std::size_t id) const -> Expression { return expressions[id]; }
 
     template<typename... Args>
     Statement &emplace_statement(Args &&...args)

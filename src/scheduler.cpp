@@ -1,7 +1,8 @@
+#include "Interpreter.hpp"
+#include "Util.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cerrno>
-#include <charconv>
 #include <cstring>
 #include <deque>
 #include <filesystem>
@@ -14,111 +15,25 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "Interpreter.hpp"
-#include "Util.hpp"
 
-namespace Util
-{
-
-[[nodiscard]] static auto trim(std::string_view sv) -> std::string_view
-{
-    const auto not_space = [](char c) { return !std::isspace(static_cast<unsigned char>(c)); };
-    sv.remove_prefix(std::ranges::distance(sv.begin(), std::ranges::find_if(sv, not_space)));
-    sv.remove_suffix(std::ranges::distance(sv.rbegin(), std::ranges::find_if(sv | std::views::reverse, not_space)));
-
-    return sv;
-}
-
-
-[[nodiscard]] static auto parse_number(std::string_view str) -> std::optional<std::size_t>
-{
-    std::size_t value = 0;
-    auto [ptr, ec]    = std::from_chars(str.data(), str.data() + str.size(), value);
-    if (ec != std::errc()) {
-        std::println(stderr, "[ERROR] Failed to parse number from string: {}", str);
-        return std::nullopt;
-    }
-
-    return value;
-};
-
-[[nodiscard]] static auto to_lower(std::string_view input) -> std::string
-{
-    std::string result;
-    std::ranges::transform(input, std::back_inserter(result), [](char c) {
-        return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    });
-    return result;
-}
-
-} // namespace Util
-
-enum class EventKind : std::uint8_t
-{
-    Cpu = 0,
-    Io,
-    Count,
-};
-
-[[nodiscard]] constexpr static auto event_kind_to_str(EventKind event_kind) -> std::string
-{
-    static_assert(
-      std::to_underlying(EventKind::Count) == 2,
-      "[ERROR] Exhaustive handling of all enum variants for EventKind is required"
-    );
-
-    switch (event_kind) {
-        case EventKind::Cpu: {
-            return "cpu";
-        }
-        case EventKind::Io: {
-            return "io";
-        }
-        default: {
-            assert(false && "unreachable");
-        }
-    }
-}
-
-[[nodiscard]] constexpr static auto event_kind_try_from_str(std::string_view str) -> std::optional<EventKind>
-{
-    static_assert(
-      std::to_underlying(EventKind::Count) == 2,
-      "[ERROR] Exhaustive handling of all enum variants for EventKind is required"
-    );
-
-    if (Util::to_lower(str) == "cpu") {
-        return EventKind::Cpu;
-    } else if (Util::to_lower(str) == "io") {
-        return EventKind::Io;
-    }
-
-    std::println("[ERROR] Unknown event kind: {}", str);
-    return std::nullopt;
-}
-
-struct [[nodiscard]] Event final
-{
-    EventKind   kind;
-    std::size_t duration;
-};
+#include "Simulation.hpp"
 
 struct [[nodiscard]] Process final
 {
-    std::string       name;
-    std::size_t       pid;
-    std::size_t       arrival;
-    std::deque<Event> events;
+    std::string_view              name;
+    std::size_t                   pid;
+    std::size_t                   arrival;
+    std::deque<Simulation::Event> events;
 
     [[nodiscard]] static auto load_from_file(const std::filesystem::path &path) -> std::optional<Process>
     {
         auto file = std::ifstream(path);
         if (!file) { std::println(stderr, "[ERROR] Unable to read file {}: {}", path.string(), strerror(errno)); }
 
-        std::string       name;
-        std::size_t       pid     = 0;
-        std::size_t       arrival = 0;
-        std::deque<Event> events;
+        std::string                   name;
+        std::size_t                   pid     = 0;
+        std::size_t                   arrival = 0;
+        std::deque<Simulation::Event> events;
 
         bool        parsing_header = true;
         std::string line;
@@ -164,7 +79,7 @@ struct [[nodiscard]] Process final
 
 
             std::size_t duration   = TRY(Util::parse_number(event[1]));
-            const auto  event_kind = TRY(event_kind_try_from_str(event[0]));
+            const auto  event_kind = TRY(Simulation::event_kind_try_from_str(event[0]));
             events.emplace_back(event_kind, duration);
         }
 
@@ -174,14 +89,14 @@ struct [[nodiscard]] Process final
 
 struct Scheduler;
 
-class [[nodiscard]] Simulation final
+class [[nodiscard]] SimOs final
 {
   public:
-    using ScheduleFn = std::function<void(Simulation &)>;
+    using ScheduleFn = std::function<void(SimOs &)>;
 
   public:
-    template<std::invocable<Simulation &> Callback>
-    explicit Simulation(Callback callback)
+    template<std::invocable<SimOs &> Callback>
+    explicit SimOs(Callback callback)
       : schedule_fn{ callback }
     {}
 
@@ -190,7 +105,11 @@ class [[nodiscard]] Simulation final
         return !running && processes.empty() && waiting.empty() && ready.empty();
     }
 
-    void add_process(const Process &process) { processes.push_back(std::make_shared<Process>(process)); }
+    template<typename... Args>
+    void emplace_process(Args &&...args)
+    {
+        processes.push_back(std::make_shared<Process>(std::forward<Args>(args)...));
+    }
 
     void step()
     {
@@ -270,17 +189,17 @@ class [[nodiscard]] Simulation final
     void dispatch_process_by_first_event(const std::shared_ptr<Process> &process)
     {
         static_assert(
-          std::to_underlying(EventKind::Count) == 2,
+          std::to_underlying(Simulation::EventKind::Count) == 2,
           "Exhaustive handling of all variants for enum EventKind is required."
         );
         assert(!process->events.empty() && "process queue must not be empty");
         const auto first_event = process->events.front();
         switch (first_event.kind) {
-            case EventKind::Cpu: {
+            case Simulation::EventKind::Cpu: {
                 ready.push_back(process);
                 break;
             }
-            case EventKind::Io: {
+            case Simulation::EventKind::Io: {
                 waiting.push_back(process);
                 break;
             }
@@ -297,16 +216,16 @@ class [[nodiscard]] Simulation final
             assert(!process->events.empty() && "event queue must not be empty");
 
             auto &current_event = process->events.front();
-            assert(current_event.kind == EventKind::Io && "process in waiting queue must be on an IO event");
+            assert(
+              current_event.kind == Simulation::EventKind::Io && "process in waiting queue must be on an IO event"
+            );
             --current_event.duration;
 
             if (current_event.duration == 0) {
                 process->events.pop_front();
                 it = waiting.erase(it);
 
-                if (!process->events.empty()) {
-                    dispatch_process_by_first_event(process);
-                }
+                if (!process->events.empty()) { dispatch_process_by_first_event(process); }
             } else {
                 ++it;
             }
@@ -321,7 +240,7 @@ class [[nodiscard]] Simulation final
         assert(!process->events.empty() && "event queue must not be empty");
 
         auto &current_event = process->events.front();
-        assert(current_event.kind == EventKind::Cpu && "process running must be on an CPU event");
+        assert(current_event.kind == Simulation::EventKind::Cpu && "process running must be on an CPU event");
         --current_event.duration;
 
         if (current_event.duration == 0) {
@@ -351,7 +270,9 @@ class [[nodiscard]] Simulation final
               "\n    {{ name: {}, pid: {}, arrival: {}, events: {{ ", process->name, process->pid, process->arrival
             );
             for (const auto &event : process->events) {
-                std::println("        {{ kind: {}, duration: {} }},\n    }},", event_kind_to_str(event.kind), event.duration);
+                std::println(
+                  "        {{ kind: {}, duration: {} }},\n    }},", event_kind_to_str(event.kind), event.duration
+                );
             }
         }
     }
@@ -368,9 +289,7 @@ class [[nodiscard]] Simulation final
 
         std::print("Running Process {{");
         if (running) {
-            std::print(
-              "{{ name: {}, pid: {}, arrival: {}, events: {{ ", running->name, running->pid, running->arrival
-            );
+            std::print("{{ name: {}, pid: {}, arrival: {}, events: {{ ", running->name, running->pid, running->arrival);
             for (const auto &event : running->events) {
                 std::println("kind: {}, duration: {} }},", event_kind_to_str(event.kind), event.duration);
             }
@@ -391,12 +310,6 @@ class [[nodiscard]] Simulation final
 
 auto main() -> int
 {
-    constexpr std::string_view script = "examples/simple.sl";
-    if (!Interpreter::Interpreter<Simulation>::eval_file(script)) {
-        std::println(stderr, "[ERROR] Could not correctly evaluate script {}", script);
-    }
-    return 0;
-
     const auto round_robin_scheduler = [quantum = 5UL](auto &sim) {
         if (sim.ready_queue().empty()) { return; }
 
@@ -408,24 +321,34 @@ auto main() -> int
         auto &events = process->events;
         assert(!events.empty() && "process queue must not be empty");
         auto &next_event = events.front();
-        assert(next_event.kind == EventKind::Cpu && "event of process in ready must be cpu");
+        assert(next_event.kind == Simulation::EventKind::Cpu && "event of process in ready must be cpu");
 
         // Split event in multiple events if greater than quantum
         if (next_event.duration > quantum) {
             next_event.duration -= quantum;
-            const auto new_event = Event{
-                .kind     = EventKind::Cpu,
+            const auto new_event = Simulation::Event{
+                .kind     = Simulation::EventKind::Cpu,
                 .duration = quantum,
             };
             events.push_front(new_event);
         }
     };
 
-    auto sim = Simulation(round_robin_scheduler);
+    auto sim = SimOs(round_robin_scheduler);
 
-    const auto process = Process::load_from_file("test.csv");
-    if (!process) { return 1; }
-    sim.add_process(*process);
+
+    constexpr std::string_view script = "examples/simple.sl";
+    const auto path = std::filesystem::path(script);
+    auto file = std::ifstream(path);
+    if (!file) { std::println(stderr, "[ERROR] Unable to read file {}: {}", path.string(), strerror(errno)); }
+
+    std::stringstream ss;
+    ss << file.rdbuf();
+    const auto file_content = ss.str();
+
+    if (!Interpreter::Interpreter<SimOs>::eval_file(file_content, sim)) {
+        std::println(stderr, "[ERROR] Could not correctly evaluate script {}", script);
+    }
 
     while (!sim.complete()) { sim.step(); }
 }
