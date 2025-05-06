@@ -14,17 +14,8 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#if __clang__ || __GNUC__
-#define TRY(failable)                     \
-    ({                                    \
-        auto result = (failable);         \
-        if (!result) return std::nullopt; \
-        *result;                          \
-    })
-#else
-#error "Unsupported compiler: TRY macro only supported for GCC and Clang"
-#endif
+#include "Interpreter.hpp"
+#include "Util.hpp"
 
 namespace Util
 {
@@ -400,6 +391,12 @@ class [[nodiscard]] Simulation final
 
 auto main() -> int
 {
+    constexpr std::string_view script = "examples/simple.sl";
+    if (!Interpreter::Interpreter<Simulation>::eval_file(script)) {
+        std::println(stderr, "[ERROR] Could not correctly evaluate script {}", script);
+    }
+    return 0;
+
     const auto round_robin_scheduler = [quantum = 5UL](auto &sim) {
         if (sim.ready_queue().empty()) { return; }
 
