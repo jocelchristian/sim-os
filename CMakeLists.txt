@@ -6,4 +6,9 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE Debug)
 
-add_executable(scheduler src/scheduler.cpp src/Interpreter.cpp)
+add_executable(scheduler
+    src/scheduler.cpp
+    src/Lexer.cpp
+    src/Parser.cpp
+    src/Interpreter.cpp
+)
