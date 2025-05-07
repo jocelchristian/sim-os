@@ -21,11 +21,10 @@ struct [[nodiscard]] Span final
 template<>
 struct std::formatter<Interpreter::Span>
 {
-    constexpr auto parse(auto &ctx) { return ctx.begin(); }
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
 
-    auto format(const Interpreter::Span &span, auto &ctx) const
+    auto format(const Interpreter::Span& span, auto& ctx) const
     {
         return std::format_to(ctx.out(), "{{ start = {}, end = {} }}", span.start, span.end);
     }
 };
-

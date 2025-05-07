@@ -70,13 +70,13 @@ struct [[nodiscard]] Ast final
     [[nodiscard]] auto expression_by_id(const std::size_t id) const -> Expression { return expressions[id]; }
 
     template<typename... Args>
-    Statement &emplace_statement(Args &&...args)
+    Statement& emplace_statement(Args&&... args)
     {
         return statements.emplace_back(std::forward<Args>(args)...);
     }
 
     template<typename... Args>
-    Expression &emplace_expression(Args &&...args)
+    Expression& emplace_expression(Args&&... args)
     {
         return expressions.emplace_back(std::forward<Args>(args)...);
     }
@@ -87,16 +87,16 @@ struct [[nodiscard]] Ast final
 template<>
 struct std::formatter<Interpreter::StatementKind>
 {
-    constexpr auto parse(auto &ctx) { return ctx.begin(); }
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
 
-    auto format(const Interpreter::StatementKind &kind, auto &ctx) const
+    auto format(const Interpreter::StatementKind& kind, auto& ctx) const
     {
         static_assert(
           std::variant_size_v<Interpreter::StatementKind> == 1
           && "Exhaustive handling of all variants for StatementKind is required."
         );
         const auto result = std::visit(
-          [](const auto &value) -> std::string {
+          [](const auto& value) -> std::string {
               if constexpr (std::is_same_v<std::decay_t<decltype(value)>, Interpreter::ExpressionId>) {
                   return std::format("ExpressiondId {{ id = {} }}", value);
               } else {
@@ -113,9 +113,9 @@ struct std::formatter<Interpreter::StatementKind>
 template<>
 struct std::formatter<Interpreter::Statement>
 {
-    constexpr auto parse(auto &ctx) { return ctx.begin(); }
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
 
-    auto format(const Interpreter::Statement &statement, auto &ctx) const
+    auto format(const Interpreter::Statement& statement, auto& ctx) const
     {
         return std::format_to(
           ctx.out(), "Statement {{ kind = {}, span = {}, id = {} }}", statement.kind, statement.span, statement.id
@@ -126,11 +126,11 @@ struct std::formatter<Interpreter::Statement>
 template<>
 struct std::formatter<Interpreter::ExpressionKind>
 {
-    constexpr auto parse(auto &ctx) { return ctx.begin(); }
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
 
-    auto format(const Interpreter::ExpressionKind &kind, auto &ctx) const
+    auto format(const Interpreter::ExpressionKind& kind, auto& ctx) const
     {
-        const auto join_expressions = [](const auto &arguments) -> std::string {
+        const auto join_expressions = [](const auto& arguments) -> std::string {
             std::stringstream ss;
             for (std::size_t i = 0; i < arguments.size(); ++i) {
                 const auto elem = arguments[i];
@@ -149,7 +149,7 @@ struct std::formatter<Interpreter::ExpressionKind>
           "Exhaustive handling of all variants for ExpressionKind is required."
         );
         const auto result = std::visit(
-          [&](const auto &value) -> std::string {
+          [&](const auto& value) -> std::string {
               if constexpr (std::is_same_v<std::decay_t<decltype(value)>, Interpreter::Call>) {
                   return std::format(
                     "Call {{ identifier = {}, arguments = {} }}", value.identifier, join_expressions(value.arguments)
@@ -178,9 +178,9 @@ struct std::formatter<Interpreter::ExpressionKind>
 template<>
 struct std::formatter<Interpreter::Expression>
 {
-    constexpr auto parse(auto &ctx) { return ctx.begin(); }
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
 
-    auto format(const Interpreter::Expression &expression, auto &ctx) const
+    auto format(const Interpreter::Expression& expression, auto& ctx) const
     {
         return std::format_to(
           ctx.out(), "Expression {{ kind = {}, span = {}, id = {} }}", expression.kind, expression.span, expression.id

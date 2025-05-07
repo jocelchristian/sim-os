@@ -1,7 +1,7 @@
 #pragma once
 
-#include <print>
 #include <cassert>
+#include <print>
 #include <utility>
 
 #include "Util.hpp"
@@ -59,4 +59,4 @@ struct [[nodiscard]] Event final
     std::size_t duration;
 };
 
-}
+} // namespace Os

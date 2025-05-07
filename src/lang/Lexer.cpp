@@ -45,7 +45,7 @@ auto Lexer::lex(const std::string_view source) -> std::optional<std::vector<Toke
 }
 
 Lexer::Lexer(const std::string_view source)
-  : source{ source }
+  : source { source }
 {}
 
 auto Lexer::single_character_token(const std::string_view character) -> std::optional<Token>
@@ -53,7 +53,7 @@ auto Lexer::single_character_token(const std::string_view character) -> std::opt
     const auto kind = TRY(token_kind_try_from_character(character));
 
     const auto lexeme = source.substr(cursor, 1);
-    const auto token  = Token{ .lexeme = lexeme, .kind = kind, .span = Span{ .start = cursor, .end = cursor + 1 } };
+    const auto token  = Token { .lexeme = lexeme, .kind = kind, .span = Span { .start = cursor, .end = cursor + 1 } };
 
     advance();
     return token;
@@ -75,10 +75,10 @@ auto Lexer::keyword_or_identifier() -> std::optional<Token>
     }
 
     const auto lexeme = source.substr(start_idx, end_idx - start_idx);
-    return Token{
+    return Token {
         .lexeme = lexeme,
         .kind   = Token::is_keyword(lexeme) ? TokenKind::Keyword : TokenKind::Identifier,
-        .span   = Span{ .start = start_idx, .end = end_idx },
+        .span   = Span { .start = start_idx, .end = end_idx },
     };
 }
 
@@ -99,9 +99,9 @@ auto Lexer::string_literal() -> std::optional<Token>
         advance();
     }
 
-    return Token{ .lexeme = source.substr(start_idx, end_idx - start_idx),
-                  .kind   = TokenKind::StringLiteral,
-                  .span   = Span{ .start = start_idx, .end = end_idx } };
+    return Token { .lexeme = source.substr(start_idx, end_idx - start_idx),
+                   .kind   = TokenKind::StringLiteral,
+                   .span   = Span { .start = start_idx, .end = end_idx } };
 }
 
 auto Lexer::number() -> std::optional<Token>
@@ -120,9 +120,9 @@ auto Lexer::number() -> std::optional<Token>
         advance();
     }
 
-    return Token{ .lexeme = source.substr(start_idx, end_idx - start_idx),
-                  .kind   = TokenKind::Number,
-                  .span   = Span{ .start = start_idx, .end = end_idx } };
+    return Token { .lexeme = source.substr(start_idx, end_idx - start_idx),
+                   .kind   = TokenKind::Number,
+                   .span   = Span { .start = start_idx, .end = end_idx } };
 }
 
 auto Lexer::has_more() const -> bool { return !(cursor >= source.size()); }

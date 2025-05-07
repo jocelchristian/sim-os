@@ -7,8 +7,8 @@
 #include <ranges>
 
 #include "Lexer.hpp"
-#include "Parser.hpp"
 #include "os/Os.hpp"
+#include "Parser.hpp"
 #include "Util.hpp"
 
 namespace Interpreter
@@ -18,7 +18,7 @@ template<typename SimOs>
 class [[nodiscard]] Interpreter final
 {
   public:
-    [[nodiscard]] static auto eval(const std::string_view file_content, SimOs &sim) -> bool
+    [[nodiscard]] static auto eval(const std::string_view file_content, SimOs& sim) -> bool
     {
         Interpreter interpreter(sim);
 
@@ -28,7 +28,7 @@ class [[nodiscard]] Interpreter final
         if (!tokens) { return false; }
 
         std::println("- Tokens -");
-        for (const auto &[idx, token] : std::views::zip(std::views::iota(0), *tokens)) {
+        for (const auto& [idx, token] : std::views::zip(std::views::iota(0), *tokens)) {
             std::println("#{}: {}", idx, token);
         }
 
@@ -38,12 +38,12 @@ class [[nodiscard]] Interpreter final
 
         std::println("- Statements -");
         if (!ast) { return false; }
-        for (const auto &[idx, statement] : std::views::zip(std::views::iota(0), ast->statements)) {
+        for (const auto& [idx, statement] : std::views::zip(std::views::iota(0), ast->statements)) {
             std::println("#{}: {}", idx, statement);
         }
 
         std::println("- Expressions -");
-        for (const auto &[idx, expression] : std::views::zip(std::views::iota(0), ast->expressions)) {
+        for (const auto& [idx, expression] : std::views::zip(std::views::iota(0), ast->expressions)) {
             std::println("#{}: {}", idx, expression);
         }
 
@@ -52,7 +52,7 @@ class [[nodiscard]] Interpreter final
         // FIXME: Super mega hyper duper stupid evaluation
         // this code is trash i just wanted to see it happen
         // for the moment. Will clean up for sure
-        for (const auto &statement : ast->statements) {
+        for (const auto& statement : ast->statements) {
             if (std::holds_alternative<ExpressionId>(statement.kind)) {
                 const auto expression_id = std::get<ExpressionId>(statement.kind);
                 const auto expr          = ast->expression_by_id(expression_id);
@@ -105,10 +105,10 @@ class [[nodiscard]] Interpreter final
                                 const auto duration = *maybe_number;
 
 
-                                const auto event = Os::Event{ .kind     = event_kind.name.lexeme == "Io"
-                                                                                    ? Os::EventKind::Io
-                                                                                    : Os::EventKind::Cpu,
-                                                                      .duration = duration };
+                                const auto event =
+                                  Os::Event { .kind =
+                                                event_kind.name.lexeme == "Io" ? Os::EventKind::Io : Os::EventKind::Cpu,
+                                              .duration = duration };
 
                                 events.push_back(event);
                             } else {
@@ -133,8 +133,8 @@ class [[nodiscard]] Interpreter final
     }
 
   private:
-    explicit Interpreter(SimOs &sim)
-      : sim{ sim }
+    explicit Interpreter(SimOs& sim)
+      : sim { sim }
     {}
 
     SimOs& sim;

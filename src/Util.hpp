@@ -1,9 +1,9 @@
 #pragma once
 
-#include <ranges>
-#include <print>
-#include <charconv>
 #include <algorithm>
+#include <charconv>
+#include <print>
+#include <ranges>
 
 #if __clang__ || __GNUC__
 #define TRY(failable)                     \

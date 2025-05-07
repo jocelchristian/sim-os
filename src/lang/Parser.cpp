@@ -5,7 +5,7 @@
 namespace Interpreter
 {
 
-auto Parser::parse(const std::vector<Token> &tokens) -> std::optional<Ast>
+auto Parser::parse(const std::vector<Token>& tokens) -> std::optional<Ast>
 {
     Parser parser(tokens);
 
@@ -21,7 +21,7 @@ auto Parser::parse(const std::vector<Token> &tokens) -> std::optional<Ast>
 auto Parser::expression_statement() -> std::optional<Statement>
 {
     const auto expr = TRY(expression());
-    return Statement{ .kind = expr.id, .span = expr.span, .id = expr.id };
+    return Statement { .kind = expr.id, .span = expr.span, .id = expr.id };
 }
 
 auto Parser::expression() -> std::optional<Expression> { return primary_expression(); }
@@ -66,13 +66,13 @@ auto Parser::primary_expression() -> std::optional<Expression>
 auto Parser::string_literal() -> std::optional<Expression>
 {
     const auto token = TRY(consume_then_match(TokenKind::StringLiteral));
-    return ast.emplace_expression(StringLiteral{ .literal = token }, token.span, expression_id++);
+    return ast.emplace_expression(StringLiteral { .literal = token }, token.span, expression_id++);
 }
 
 auto Parser::number() -> std::optional<Expression>
 {
     const auto token = TRY(consume_then_match(TokenKind::Number));
-    return ast.emplace_expression(Number{ .number = token }, token.span, expression_id++);
+    return ast.emplace_expression(Number { .number = token }, token.span, expression_id++);
 }
 
 auto Parser::list() -> std::optional<Expression>
@@ -106,7 +106,7 @@ auto Parser::list() -> std::optional<Expression>
     }
 
     return ast.emplace_expression(
-      List{ .elements = elements }, Span::join(left_bracket.span, end_span), expression_id++
+      List { .elements = elements }, Span::join(left_bracket.span, end_span), expression_id++
     );
 }
 
@@ -141,7 +141,7 @@ auto Parser::tuple() -> std::optional<Expression>
     }
 
     return ast.emplace_expression(
-      Tuple{ .elements = elements }, Span::join(left_paren.span, end_span), expression_id++
+      Tuple { .elements = elements }, Span::join(left_paren.span, end_span), expression_id++
     );
 }
 
@@ -154,7 +154,7 @@ auto Parser::call_expression() -> std::optional<Expression>
     if (!arguments.empty()) { end_span = ast.expression_by_id(arguments.back()).span; }
 
     return ast.emplace_expression(
-      Call{ .identifier = callee, .arguments = arguments }, Span::join(callee.span, end_span), expression_id++
+      Call { .identifier = callee, .arguments = arguments }, Span::join(callee.span, end_span), expression_id++
     );
 }
 
@@ -223,8 +223,8 @@ auto Parser::next() -> std::optional<Token>
     return std::nullopt;
 }
 
-Parser::Parser(const std::vector<Token> &tokens)
-  : tokens{ tokens }
+Parser::Parser(const std::vector<Token>& tokens)
+  : tokens { tokens }
 {}
 
 } // namespace Interpreter

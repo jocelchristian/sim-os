@@ -7,9 +7,9 @@
 #include <print>
 #include <utility>
 
+#include "lang/Interpreter.hpp"
 #include "os/Os.hpp"
 #include "os/Process.hpp"
-#include "lang/Interpreter.hpp"
 
 
 struct Scheduler;
@@ -17,12 +17,12 @@ struct Scheduler;
 class [[nodiscard]] SimOs final
 {
   public:
-    using ScheduleFn = std::function<void(SimOs &)>;
+    using ScheduleFn = std::function<void(SimOs&)>;
 
   public:
-    template<std::invocable<SimOs &> Callback>
+    template<std::invocable<SimOs&> Callback>
     explicit SimOs(Callback callback)
-      : schedule_fn{ callback }
+      : schedule_fn { callback }
     {}
 
     [[nodiscard]] auto complete() const -> bool
@@ -31,7 +31,7 @@ class [[nodiscard]] SimOs final
     }
 
     template<typename... Args>
-    void emplace_process(Args &&...args)
+    void emplace_process(Args&&... args)
     {
         processes.push_back(std::make_shared<Os::Process>(std::forward<Args>(args)...));
     }
@@ -75,9 +75,9 @@ class [[nodiscard]] SimOs final
     }
 
     // FIXME: deducing this
-    [[nodiscard]] auto ready_queue() -> std::deque<std::shared_ptr<Os::Process>> & { return ready; }
+    [[nodiscard]] auto ready_queue() -> std::deque<std::shared_ptr<Os::Process>>& { return ready; }
 
-    void set_running(const std::shared_ptr<Os::Process> &process) { running = process; }
+    void set_running(const std::shared_ptr<Os::Process>& process) { running = process; }
 
   private:
     void sidetrack_processes()
@@ -111,7 +111,7 @@ class [[nodiscard]] SimOs final
         }
     }
 
-    void dispatch_process_by_first_event(const std::shared_ptr<Os::Process> &process)
+    void dispatch_process_by_first_event(const std::shared_ptr<Os::Process>& process)
     {
         static_assert(
           std::to_underlying(Os::EventKind::Count) == 2,
@@ -137,13 +137,11 @@ class [[nodiscard]] SimOs final
     void update_waiting_list()
     {
         for (auto it = waiting.begin(); it != waiting.end();) {
-            auto &process = *it;
+            auto& process = *it;
             assert(!process->events.empty() && "event queue must not be empty");
 
-            auto &current_event = process->events.front();
-            assert(
-              current_event.kind == Os::EventKind::Io && "process in waiting queue must be on an IO event"
-            );
+            auto& current_event = process->events.front();
+            assert(current_event.kind == Os::EventKind::Io && "process in waiting queue must be on an IO event");
             --current_event.duration;
 
             if (current_event.duration == 0) {
@@ -161,10 +159,10 @@ class [[nodiscard]] SimOs final
     {
         if (!running) { return; }
 
-        auto &process = running;
+        auto& process = running;
         assert(!process->events.empty() && "event queue must not be empty");
 
-        auto &current_event = process->events.front();
+        auto& current_event = process->events.front();
         assert(current_event.kind == Os::EventKind::Cpu && "process running must be on an CPU event");
         --current_event.duration;
 
@@ -182,19 +180,19 @@ class [[nodiscard]] SimOs final
 
     [[nodiscard]] auto ensure_pid_is_unique(const std::size_t pid) const -> bool
     {
-        const auto comparator = [&](const auto &elem) { return elem->pid == pid; };
+        const auto comparator = [&](const auto& elem) { return elem->pid == pid; };
         return (!running || running->pid != pid) && std::ranges::find_if(ready, comparator) == ready.end()
                && std::ranges::find_if(waiting, comparator) == waiting.end();
     }
 
-    static void print_process_deque(const std::deque<std::shared_ptr<Os::Process>> &processes)
+    static void print_process_deque(const std::deque<std::shared_ptr<Os::Process>>& processes)
     {
         // FIXME: implement a custom formatter for Process
-        for (const auto &process : processes) {
+        for (const auto& process : processes) {
             std::println(
               "\n    {{ name: {}, pid: {}, arrival: {}, events: {{ ", process->name, process->pid, process->arrival
             );
-            for (const auto &event : process->events) {
+            for (const auto& event : process->events) {
                 std::println(
                   "        {{ kind: {}, duration: {} }},\n    }},", event_kind_to_str(event.kind), event.duration
                 );
@@ -215,7 +213,7 @@ class [[nodiscard]] SimOs final
         std::print("Running Process {{");
         if (running) {
             std::print("{{ name: {}, pid: {}, arrival: {}, events: {{ ", running->name, running->pid, running->arrival);
-            for (const auto &event : running->events) {
+            for (const auto& event : running->events) {
                 std::println("kind: {}, duration: {} }},", event_kind_to_str(event.kind), event.duration);
             }
         }
@@ -235,23 +233,23 @@ class [[nodiscard]] SimOs final
 
 auto main() -> int
 {
-    const auto round_robin_scheduler = [quantum = 5UL](auto &sim) {
+    const auto round_robin_scheduler = [quantum = 5UL](auto& sim) {
         if (sim.ready_queue().empty()) { return; }
 
-        auto       &ready   = sim.ready_queue();
-        const auto &process = ready.front();
+        auto&       ready   = sim.ready_queue();
+        const auto& process = ready.front();
         ready.pop_front();
         sim.set_running(process);
 
-        auto &events = process->events;
+        auto& events = process->events;
         assert(!events.empty() && "process queue must not be empty");
-        auto &next_event = events.front();
+        auto& next_event = events.front();
         assert(next_event.kind == Os::EventKind::Cpu && "event of process in ready must be cpu");
 
         // Split event in multiple events if greater than quantum
         if (next_event.duration > quantum) {
             next_event.duration -= quantum;
-            const auto new_event = Os::Event{
+            const auto new_event = Os::Event {
                 .kind     = Os::EventKind::Cpu,
                 .duration = quantum,
             };
@@ -263,8 +261,8 @@ auto main() -> int
 
 
     constexpr std::string_view script = "examples/scheduler/simple.sl";
-    const auto path = std::filesystem::path(script);
-    auto file = std::ifstream(path);
+    const auto                 path   = std::filesystem::path(script);
+    auto                       file   = std::ifstream(path);
     if (!file) { std::println(stderr, "[ERROR] Unable to read file {}: {}", path.string(), strerror(errno)); }
 
     std::stringstream ss;

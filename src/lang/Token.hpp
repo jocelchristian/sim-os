@@ -1,8 +1,8 @@
 #pragma once
 
 #include <algorithm>
-#include <print>
 #include <cassert>
+#include <print>
 #include <utility>
 
 #include "Span.hpp"
@@ -45,9 +45,9 @@ struct [[nodiscard]] Token final
 template<>
 struct std::formatter<Interpreter::TokenKind>
 {
-    constexpr auto parse(auto &ctx) { return ctx.begin(); }
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
 
-    auto format(Interpreter::TokenKind kind, auto &ctx) const
+    auto format(Interpreter::TokenKind kind, auto& ctx) const
     {
         const auto kind_to_str = [](Interpreter::TokenKind kind) {
             static_assert(
@@ -95,9 +95,9 @@ struct std::formatter<Interpreter::TokenKind>
 template<>
 struct std::formatter<Interpreter::Token>
 {
-    constexpr auto parse(auto &ctx) { return ctx.begin(); }
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
 
-    auto format(const Interpreter::Token &token, auto &ctx) const
+    auto format(const Interpreter::Token& token, auto& ctx) const
     {
         return std::format_to(
           ctx.out(), "{{ lexeme = \"{}\", kind = {}, span = {} }}", token.lexeme, token.kind, token.span

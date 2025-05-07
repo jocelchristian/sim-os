@@ -11,10 +11,10 @@ namespace Interpreter
 class [[nodiscard]] Parser final
 {
   public:
-    [[nodiscard]] static auto parse(const std::vector<Token> &tokens) -> std::optional<Ast>;
+    [[nodiscard]] static auto parse(const std::vector<Token>& tokens) -> std::optional<Ast>;
 
   private:
-    explicit Parser(const std::vector<Token> &tokens);
+    explicit Parser(const std::vector<Token>& tokens);
 
     [[nodiscard]] auto expression_statement() -> std::optional<Statement>;
 
@@ -39,7 +39,7 @@ class [[nodiscard]] Parser final
     std::vector<Token> tokens;
     std::size_t        cursor = 0;
 
-    Ast ast = {};
+    Ast         ast           = {};
     std::size_t expression_id = 0;
 };
 
