@@ -4,11 +4,12 @@ project(sim-os)
 set(CXX_FLAGS "-std=c++2b -Wall -Wextra -Werror -Wshadow -Wconversion -Wpedantic -ggdb")
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE Debug)
 
-add_executable(scheduler
-    src/scheduler.cpp
-    src/Lexer.cpp
-    src/Parser.cpp
-    src/Interpreter.cpp
+add_subdirectory("${CMAKE_SOURCE_DIR}/src/")
+
+add_executable(
+    scheduler
+    examples/scheduler/scheduler.cpp
 )
+target_include_directories(scheduler PRIVATE "${CMAKE_SOURCE_DIR}/src/")
+target_link_libraries(scheduler PRIVATE sim-lang sim-os)

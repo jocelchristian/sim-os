@@ -8,7 +8,7 @@
 
 #include "Lexer.hpp"
 #include "Parser.hpp"
-#include "Simulation.hpp"
+#include "os/Os.hpp"
 #include "Util.hpp"
 
 namespace Interpreter
@@ -18,7 +18,7 @@ template<typename SimOs>
 class [[nodiscard]] Interpreter final
 {
   public:
-    [[nodiscard]] static auto eval_file(const std::string_view file_content, SimOs &sim) -> bool
+    [[nodiscard]] static auto eval(const std::string_view file_content, SimOs &sim) -> bool
     {
         Interpreter interpreter(sim);
 
@@ -85,7 +85,7 @@ class [[nodiscard]] Interpreter final
                         assert(std::holds_alternative<List>(events_expr.kind));
                         const auto events_arguments = std::get<List>(events_expr.kind);
 
-                        std::deque<Simulation::Event> events = {};
+                        std::deque<Os::Event> events = {};
                         for (unsigned long event_tuple_id : events_arguments.elements) {
                             const auto event_tuple = ast->expression_by_id(event_tuple_id);
                             if (std::holds_alternative<Tuple>(event_tuple.kind)) {
@@ -105,9 +105,9 @@ class [[nodiscard]] Interpreter final
                                 const auto duration = *maybe_number;
 
 
-                                const auto event = Simulation::Event{ .kind     = event_kind.name.lexeme == "Io"
-                                                                                    ? Simulation::EventKind::Io
-                                                                                    : Simulation::EventKind::Cpu,
+                                const auto event = Os::Event{ .kind     = event_kind.name.lexeme == "Io"
+                                                                                    ? Os::EventKind::Io
+                                                                                    : Os::EventKind::Cpu,
                                                                       .duration = duration };
 
                                 events.push_back(event);

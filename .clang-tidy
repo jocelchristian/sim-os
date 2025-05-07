@@ -35,6 +35,7 @@ Checks: "*,
         -boost-use-ranges,
         -readability-redundant-access-specifiers,
         -misc-use-anonymous-namespace,
+        -misc-no-recursion,
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''

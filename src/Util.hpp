@@ -3,6 +3,7 @@
 #include <ranges>
 #include <print>
 #include <charconv>
+#include <algorithm>
 
 #if __clang__ || __GNUC__
 #define TRY(failable)                     \
@@ -19,7 +20,7 @@
 namespace Util
 {
 
-[[nodiscard]] static auto trim(std::string_view sv) -> std::string_view
+[[nodiscard]] constexpr static auto trim(std::string_view sv) -> std::string_view
 {
     const auto not_space = [](char c) { return !std::isspace(static_cast<unsigned char>(c)); };
     sv.remove_prefix(std::ranges::distance(sv.begin(), std::ranges::find_if(sv, not_space)));
@@ -29,7 +30,7 @@ namespace Util
 }
 
 
-[[nodiscard]] static auto parse_number(std::string_view str) -> std::optional<std::size_t>
+[[nodiscard]] constexpr static auto parse_number(std::string_view str) -> std::optional<std::size_t>
 {
     std::size_t value = 0;
     auto [ptr, ec]    = std::from_chars(str.data(), str.data() + str.size(), value);
@@ -41,7 +42,7 @@ namespace Util
     return value;
 };
 
-[[nodiscard]] static auto to_lower(std::string_view input) -> std::string
+[[nodiscard]] constexpr static auto to_lower(std::string_view input) -> std::string
 {
     std::string result;
     std::ranges::transform(input, std::back_inserter(result), [](char c) {

@@ -1,91 +1,16 @@
-#include "Interpreter.hpp"
-#include "Util.hpp"
-#include <algorithm>
 #include <cassert>
 #include <cerrno>
 #include <cstring>
-#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <memory>
-#include <optional>
 #include <print>
-#include <ranges>
-#include <string>
 #include <utility>
-#include <vector>
 
-#include "Simulation.hpp"
+#include "os/Os.hpp"
+#include "os/Process.hpp"
+#include "lang/Interpreter.hpp"
 
-struct [[nodiscard]] Process final
-{
-    std::string_view              name;
-    std::size_t                   pid;
-    std::size_t                   arrival;
-    std::deque<Simulation::Event> events;
-
-    [[nodiscard]] static auto load_from_file(const std::filesystem::path &path) -> std::optional<Process>
-    {
-        auto file = std::ifstream(path);
-        if (!file) { std::println(stderr, "[ERROR] Unable to read file {}: {}", path.string(), strerror(errno)); }
-
-        std::string                   name;
-        std::size_t                   pid     = 0;
-        std::size_t                   arrival = 0;
-        std::deque<Simulation::Event> events;
-
-        bool        parsing_header = true;
-        std::string line;
-        while (std::getline(file, line)) {
-            // clang-format off
-            auto it = line
-                | std::views::split(',')
-                | std::views::transform([](auto &&elem) {
-                    return Util::trim(std::string_view{ elem });
-                });
-            // clang-format on
-
-            if (parsing_header) {
-                const std::vector<std::string_view> header(it.begin(), it.end());
-                if (header.size() != 3) {
-                    std::println(
-                      stderr,
-                      "[ERROR] expected (name, pid, arrival) in process file "
-                      "format header but got: {}",
-                      line
-                    );
-                    return std::nullopt;
-                }
-
-                name    = header[0];
-                pid     = TRY(Util::parse_number(header[1]));
-                arrival = TRY(Util::parse_number(header[2]));
-
-                parsing_header = false;
-                continue;
-            }
-
-            const std::vector<std::string_view> event(it.begin(), it.end());
-            if (event.size() != 2) {
-                std::println(
-                  stderr,
-                  "[ERROR] expected (kind, duration) in process file"
-                  " event description but got: {}",
-                  line
-                );
-                return std::nullopt;
-            }
-
-
-            std::size_t duration   = TRY(Util::parse_number(event[1]));
-            const auto  event_kind = TRY(Simulation::event_kind_try_from_str(event[0]));
-            events.emplace_back(event_kind, duration);
-        }
-
-        return Process{ .pid = pid, .arrival = arrival, .events = events };
-    }
-};
 
 struct Scheduler;
 
@@ -108,7 +33,7 @@ class [[nodiscard]] SimOs final
     template<typename... Args>
     void emplace_process(Args &&...args)
     {
-        processes.push_back(std::make_shared<Process>(std::forward<Args>(args)...));
+        processes.push_back(std::make_shared<Os::Process>(std::forward<Args>(args)...));
     }
 
     void step()
@@ -150,9 +75,9 @@ class [[nodiscard]] SimOs final
     }
 
     // FIXME: deducing this
-    [[nodiscard]] auto ready_queue() -> std::deque<std::shared_ptr<Process>> & { return ready; }
+    [[nodiscard]] auto ready_queue() -> std::deque<std::shared_ptr<Os::Process>> & { return ready; }
 
-    void set_running(const std::shared_ptr<Process> &process) { running = process; }
+    void set_running(const std::shared_ptr<Os::Process> &process) { running = process; }
 
   private:
     void sidetrack_processes()
@@ -186,20 +111,20 @@ class [[nodiscard]] SimOs final
         }
     }
 
-    void dispatch_process_by_first_event(const std::shared_ptr<Process> &process)
+    void dispatch_process_by_first_event(const std::shared_ptr<Os::Process> &process)
     {
         static_assert(
-          std::to_underlying(Simulation::EventKind::Count) == 2,
+          std::to_underlying(Os::EventKind::Count) == 2,
           "Exhaustive handling of all variants for enum EventKind is required."
         );
         assert(!process->events.empty() && "process queue must not be empty");
         const auto first_event = process->events.front();
         switch (first_event.kind) {
-            case Simulation::EventKind::Cpu: {
+            case Os::EventKind::Cpu: {
                 ready.push_back(process);
                 break;
             }
-            case Simulation::EventKind::Io: {
+            case Os::EventKind::Io: {
                 waiting.push_back(process);
                 break;
             }
@@ -217,7 +142,7 @@ class [[nodiscard]] SimOs final
 
             auto &current_event = process->events.front();
             assert(
-              current_event.kind == Simulation::EventKind::Io && "process in waiting queue must be on an IO event"
+              current_event.kind == Os::EventKind::Io && "process in waiting queue must be on an IO event"
             );
             --current_event.duration;
 
@@ -240,7 +165,7 @@ class [[nodiscard]] SimOs final
         assert(!process->events.empty() && "event queue must not be empty");
 
         auto &current_event = process->events.front();
-        assert(current_event.kind == Simulation::EventKind::Cpu && "process running must be on an CPU event");
+        assert(current_event.kind == Os::EventKind::Cpu && "process running must be on an CPU event");
         --current_event.duration;
 
         if (current_event.duration == 0) {
@@ -262,7 +187,7 @@ class [[nodiscard]] SimOs final
                && std::ranges::find_if(waiting, comparator) == waiting.end();
     }
 
-    static void print_process_deque(const std::deque<std::shared_ptr<Process>> &processes)
+    static void print_process_deque(const std::deque<std::shared_ptr<Os::Process>> &processes)
     {
         // FIXME: implement a custom formatter for Process
         for (const auto &process : processes) {
@@ -298,10 +223,10 @@ class [[nodiscard]] SimOs final
     }
 
   private:
-    std::shared_ptr<Process>             running;
-    std::deque<std::shared_ptr<Process>> processes;
-    std::deque<std::shared_ptr<Process>> waiting;
-    std::deque<std::shared_ptr<Process>> ready;
+    std::shared_ptr<Os::Process>             running;
+    std::deque<std::shared_ptr<Os::Process>> processes;
+    std::deque<std::shared_ptr<Os::Process>> waiting;
+    std::deque<std::shared_ptr<Os::Process>> ready;
 
     ScheduleFn schedule_fn;
 
@@ -321,13 +246,13 @@ auto main() -> int
         auto &events = process->events;
         assert(!events.empty() && "process queue must not be empty");
         auto &next_event = events.front();
-        assert(next_event.kind == Simulation::EventKind::Cpu && "event of process in ready must be cpu");
+        assert(next_event.kind == Os::EventKind::Cpu && "event of process in ready must be cpu");
 
         // Split event in multiple events if greater than quantum
         if (next_event.duration > quantum) {
             next_event.duration -= quantum;
-            const auto new_event = Simulation::Event{
-                .kind     = Simulation::EventKind::Cpu,
+            const auto new_event = Os::Event{
+                .kind     = Os::EventKind::Cpu,
                 .duration = quantum,
             };
             events.push_front(new_event);
@@ -337,7 +262,7 @@ auto main() -> int
     auto sim = SimOs(round_robin_scheduler);
 
 
-    constexpr std::string_view script = "examples/simple.sl";
+    constexpr std::string_view script = "examples/scheduler/simple.sl";
     const auto path = std::filesystem::path(script);
     auto file = std::ifstream(path);
     if (!file) { std::println(stderr, "[ERROR] Unable to read file {}: {}", path.string(), strerror(errno)); }
@@ -346,7 +271,7 @@ auto main() -> int
     ss << file.rdbuf();
     const auto file_content = ss.str();
 
-    if (!Interpreter::Interpreter<SimOs>::eval_file(file_content, sim)) {
+    if (!Interpreter::Interpreter<SimOs>::eval(file_content, sim)) {
         std::println(stderr, "[ERROR] Could not correctly evaluate script {}", script);
     }
 
