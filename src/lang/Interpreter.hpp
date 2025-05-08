@@ -5,6 +5,7 @@
 #include <deque>
 #include <print>
 #include <ranges>
+#include <memory>
 
 #include "Lexer.hpp"
 #include "os/Os.hpp"
@@ -14,11 +15,11 @@
 namespace Interpreter
 {
 
-template<typename SimOs>
+template<typename Sim>
 class [[nodiscard]] Interpreter final
 {
   public:
-    [[nodiscard]] static auto eval(const std::string_view file_content, SimOs& sim) -> bool
+    [[nodiscard]] static auto eval(const std::string_view file_content, const std::shared_ptr<Sim>& sim) -> bool
     {
         Interpreter interpreter(sim);
 
@@ -117,7 +118,7 @@ class [[nodiscard]] Interpreter final
                             }
                         }
 
-                        interpreter.sim.emplace_process(name.literal.lexeme, pid, arrival, events);
+                        interpreter.sim->emplace_process(name.literal.lexeme, pid, arrival, events);
                     }
                 } else {
                     std::println(stderr, "[ERROR] Unsupported expression kind: {}", statement);
@@ -133,11 +134,11 @@ class [[nodiscard]] Interpreter final
     }
 
   private:
-    explicit Interpreter(SimOs& sim)
+    explicit Interpreter(const std::shared_ptr<Sim>& sim)
       : sim { sim }
     {}
 
-    SimOs& sim;
+    std::shared_ptr<Sim> sim;
 };
 
 } // namespace Interpreter

@@ -2,3 +2,4 @@
 build/
 *.csv
 TODO
+*.ini
