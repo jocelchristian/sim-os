@@ -1,2 +1,2 @@
 add_subdirectory("lang")
-add_subdirectory("os")
+add_subdirectory("simulations")

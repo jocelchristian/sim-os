@@ -12,4 +12,4 @@ add_executable(
     examples/scheduler/scheduler.cpp
 )
 target_include_directories(scheduler PRIVATE "${CMAKE_SOURCE_DIR}/src/")
-target_link_libraries(scheduler PRIVATE sim-lang sim-os)
+target_link_libraries(scheduler PRIVATE sim-lang sim-simulations)
