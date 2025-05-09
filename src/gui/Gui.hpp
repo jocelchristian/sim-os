@@ -22,7 +22,36 @@ static void glfw_error_callback(int error, const char* description)
 
 namespace Gui
 {
+
 constexpr static auto GLSL_VERSION = "#version 330";
+
+enum class ChildFlags : std::uint8_t
+{
+    None   = 0,
+    Border = 1 << 0,
+};
+
+[[nodiscard]] static auto operator|(ChildFlags lhs, ChildFlags rhs) -> ChildFlags
+{
+    return static_cast<ChildFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+enum class WindowFlags : std::uint16_t
+{
+    None                    = 0,
+    NoTitleBar              = 1 << 0,
+    NoResize                = 1 << 1,
+    NoMove                  = 1 << 2,
+    NoScrollbar             = 1 << 3,
+    NoCollapse              = 1 << 5,
+    AlwaysVerticalScrollbar = 1 << 14,
+    NoDecoration            = NoTitleBar | NoResize | NoScrollbar | NoCollapse,
+};
+
+[[nodiscard]] static auto operator|(WindowFlags lhs, WindowFlags rhs) -> WindowFlags
+{
+    return static_cast<WindowFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
 
 [[nodiscard]] static auto init_window(const std::string& title, const int width, const int height)
   -> std::optional<GLFWwindow*>
@@ -60,14 +89,23 @@ constexpr static auto GLSL_VERSION = "#version 330";
     return window;
 }
 
+static void shutdown(GLFWwindow* window)
+{
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(window);
+    glfwTerminate();
+}
+
 template<typename... Args>
-static void draw_text_formatted(std::format_string<Args...> fmt, Args&&... args)
+static void text(std::format_string<Args...> fmt, Args&&... args)
 {
     ImGui::TextUnformatted(std::format(fmt, std::forward<Args>(args)...).c_str());
 }
 
 template<std::invocable Callback>
-static void draw_titled_child(const std::string& title, const ImVec2& child_size, Callback&& callback)
+static void title(const std::string& title, const ImVec2& child_size, Callback&& callback)
 {
     constexpr static auto title_height = 24.0F;
     const auto            title_size   = ImVec2(child_size.x, title_height);
@@ -107,4 +145,97 @@ static void draw_titled_child(const std::string& title, const ImVec2& child_size
     stbi_image_free(bytes);
     return texture_id;
 }
+
+template<std::invocable Callback>
+static void group(Callback&& callback)
+{
+    ImGui::BeginGroup();
+    std::invoke(std::forward<Callback>(callback));
+    ImGui::EndGroup();
+}
+
+template<std::invocable Callback>
+static void button(const std::string& label, Callback&& callback)
+{
+    if (ImGui::Button(label.c_str(), ImVec2(0, 0))) { std::invoke(std::forward<Callback>(callback)); }
+}
+
+template<std::invocable Callback>
+static void button(const std::string& label, const ImVec2& size, Callback&& callback)
+{
+    if (ImGui::Button(label.c_str(), size)) { std::invoke(std::forward<Callback>(callback)); }
+}
+
+template<std::invocable Callback>
+static void image_button(ImTextureID texture_id, const ImVec2& size, Callback&& callback)
+{
+    if (ImGui::ImageButton(texture_id, size)) { std::invoke(std::forward<Callback>(callback)); }
+}
+
+static void center_content_horizontally(const float content_width)
+{
+    const auto spacing         = ImGui::GetStyle().ItemSpacing.x;
+    const auto total_width     = content_width + spacing;
+    const auto available_width = ImGui::GetContentRegionAvail().x;
+    ImGui::SetCursorPosX((available_width - total_width) * 0.5F);
+}
+
+template<std::invocable Callback>
+static void child(const std::string& title, ChildFlags child_flags, WindowFlags window_flags, Callback&& callback)
+{
+    if (ImGui::BeginChild(
+          title.c_str(), ImVec2(0, 0), std::to_underlying(child_flags), std::to_underlying(window_flags)
+        )) {
+        std::invoke(std::forward<Callback>(callback));
+    }
+
+    ImGui::EndChild();
+}
+
+template<std::invocable Callback>
+static void child(
+  const std::string& title,
+  const ImVec2&      size,
+  ChildFlags         child_flags,
+  WindowFlags        window_flags,
+  Callback&&         callback
+)
+{
+    if (ImGui::BeginChild(title.c_str(), size, std::to_underlying(child_flags), std::to_underlying(window_flags))) {
+        std::invoke(std::forward<Callback>(callback));
+    }
+
+    ImGui::EndChild();
+}
+
+template<std::invocable Callback>
+static void window(const std::string& title, WindowFlags window_flags, Callback&& callback)
+{
+    ImGui::Begin(title.c_str(), nullptr, std::to_underlying(window_flags));
+    std::invoke(std::forward<Callback>(callback));
+    ImGui::End();
+}
+
+static void new_frame()
+{
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+}
+
+static void draw_call(GLFWwindow* window, const ImVec4& clear_color)
+{
+    ImGui::Render();
+    int display_w = 0;
+    int display_h = 0;
+    glfwGetFramebufferSize(window, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    glClearColor(
+      clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w
+    );
+    glClear(GL_COLOR_BUFFER_BIT);
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    glfwSwapBuffers(window);
+}
+
 } // namespace Gui

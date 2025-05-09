@@ -22,8 +22,7 @@ class [[nodiscard]] SchedulerApp final
     constexpr static auto BUTTON_SIZE      = ImVec2(16, 16);
 
   public:
-    [[nodiscard]] static auto create(const auto& sim)
-      -> std::unique_ptr<SchedulerApp>
+    [[nodiscard]] static auto create(const auto& sim) -> std::unique_ptr<SchedulerApp>
     {
         const auto window = Gui::init_window("sim-os: scheduler", WINDOW_WIDTH, WINDOW_HEIGHT);
         if (!window) { return nullptr; }
@@ -32,11 +31,6 @@ class [[nodiscard]] SchedulerApp final
 
     void render()
     {
-        ImVec4 clear_color = BACKGROUND_COLOR;
-
-        maybe_previous_texture_id = Gui::load_texture("resources/previous.png");
-        maybe_next_texture_id     = Gui::load_texture("resources/next.png");
-
         while (!quit) {
             stepped_this_frame = false;
             if (glfwWindowShouldClose(window) == 1) { quit = true; }
@@ -51,55 +45,41 @@ class [[nodiscard]] SchedulerApp final
             glfwPollEvents();
             if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0) { continue; }
 
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
+            Gui::new_frame();
 
-            // Main window
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0);
-            ImGui::SetNextWindowPos(ImVec2(0.0, 0.0));
             ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
-            ImGui::Begin("sim-os: scheduler", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize);
-            {
-                draw_control_buttons();
+            Gui::window(
+              "sim-os: scheduler",
+              Gui::WindowFlags::NoDecoration | Gui::WindowFlags::NoResize | Gui::WindowFlags::NoMove,
+              [this] -> void {
+                  draw_control_buttons();
 
-                const auto spacing                = ImGui::GetStyle().ItemSpacing.x;
-                const auto available_screen_space = ImGui::GetContentRegionAvail();
-                const auto group_width            = (available_screen_space.x - spacing * 2) / 3.0F;
-                const auto group_height           = available_screen_space.y - 30.0F;
+                  const auto spacing                = ImGui::GetStyle().ItemSpacing.x;
+                  const auto available_screen_space = ImGui::GetContentRegionAvail();
+                  const auto group_width            = (available_screen_space.x - spacing * 2) / 3.0F;
+                  const auto group_height           = available_screen_space.y - 30.0F;
 
-                ImGui::BeginGroup();
-                draw_process_queue("Ready", sim->ready, ImVec2(group_width, group_height));
-                ImGui::EndGroup();
+                  Gui::group([&] -> void {
+                      draw_process_queue("Ready", sim->ready, ImVec2(group_width, group_height));
+                  });
 
-                ImGui::SameLine();
+                  ImGui::SameLine();
 
-                ImGui::BeginGroup();
-                draw_process_queue("Waiting", sim->waiting, ImVec2(group_width, (group_height / 2.0F) - 16.0F));
-                draw_process_queue("Arrival", sim->processes, ImVec2(group_width, (group_height / 2.0F) - 16.0F));
-                ImGui::EndGroup();
+                  Gui::group([&] -> void {
+                      draw_process_queue("Waiting", sim->waiting, ImVec2(group_width, (group_height / 2.0F) - 16.0F));
+                      draw_process_queue("Arrival", sim->processes, ImVec2(group_width, (group_height / 2.0F) - 16.0F));
+                  });
 
-                ImGui::SameLine();
+                  ImGui::SameLine();
 
-                ImGui::BeginGroup();
-                draw_running_process(ImVec2(group_width, (group_height / 2.0F) - 16.0F));
-                draw_statistics(ImVec2(group_width, (group_height / 2.0F) - 16.0F));
-                ImGui::EndGroup();
-            }
-            ImGui::End();
-            ImGui::PopStyleVar(1);
-
-            ImGui::Render();
-            int display_w = 0;
-            int display_h = 0;
-            glfwGetFramebufferSize(window, &display_w, &display_h);
-            glViewport(0, 0, display_w, display_h);
-            glClearColor(
-              clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w
+                  Gui::group([&] -> void {
+                      draw_running_process(ImVec2(group_width, (group_height / 2.0F) - 16.0F));
+                      draw_statistics(ImVec2(group_width, (group_height / 2.0F) - 16.0F));
+                  });
+              }
             );
-            glClear(GL_COLOR_BUFFER_BIT);
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-            glfwSwapBuffers(window);
+
+            Gui::draw_call(window, BACKGROUND_COLOR);
         }
     }
 
@@ -108,116 +88,127 @@ class [[nodiscard]] SchedulerApp final
         const auto draw_table_element = [](const auto& key, const auto& value) -> void {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            Gui::draw_text_formatted("{}", key);
+            Gui::text("{}", key);
 
             ImGui::TableSetColumnIndex(1);
-            Gui::draw_text_formatted("{}", value);
+            Gui::text("{}", value);
         };
 
-        Gui::draw_titled_child("Stats", child_size, [&] -> void {
-            if (ImGui::BeginChild("Simulation Statistics", child_size, 1, ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
-                if (ImGui::BeginTable("Stats Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+        Gui::title("Stats", child_size, [&] -> void {
+            Gui::child(
+              "Simulation Statistics",
+              child_size,
+              Gui::ChildFlags::Border,
+              Gui::WindowFlags::AlwaysVerticalScrollbar,
+              [&] -> void {
+                  if (ImGui::BeginTable("Stats Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
-                    draw_table_element("Scheduler policy", SchedulePolicy::POLICY_NAME);
-                    draw_table_element("Ready queue size", sim->ready.size());
-                    draw_table_element("Waiting queue size", sim->waiting.size());
-                    draw_table_element("Arrival size", sim->processes.size());
-                    draw_table_element("Timer", sim->timer);
+                      draw_table_element("Scheduler policy", SchedulePolicy::POLICY_NAME);
+                      draw_table_element("Ready queue size", sim->ready.size());
+                      draw_table_element("Waiting queue size", sim->waiting.size());
+                      draw_table_element("Arrival size", sim->processes.size());
+                      draw_table_element("Timer", sim->timer);
 
-                    ImGui::EndTable();
-                }
-            }
-
-            ImGui::EndChild();
+                      ImGui::EndTable();
+                  }
+              }
+            );
         });
     }
 
     void draw_control_buttons()
     {
-        // TODO: implement previous
-        const auto spacing         = ImGui::GetStyle().ItemSpacing.x;
-        const auto total_width     = (BUTTON_SIZE.x * 2.0F) + spacing;
-        const auto available_width = ImGui::GetContentRegionAvail().x;
-        ImGui::SetCursorPosX((available_width - total_width) * 0.5F);
+        constexpr static auto buttons_count = 2;
+        Gui::center_content_horizontally(BUTTON_SIZE.x * buttons_count);
 
-        // Fallback
+        // If icons could not be loaded fallback
         if (!maybe_previous_texture_id || !maybe_next_texture_id) {
-            if (ImGui::Button("Previous")) {}
+            // TODO: implement previous
+            Gui::button("Previous", [] -> void {});
 
             ImGui::SameLine();
 
-            if (ImGui::Button("Next") && !sim->complete()) { sim->step(); }
+            Gui::button("Next", [this] -> void {
+                if (!sim->complete()) { sim->step(); }
+            });
+        } else {
+            // TODO: implement previous
+            auto* const previous_texture_id =
+              reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(*maybe_previous_texture_id));
+            Gui::image_button(previous_texture_id, BUTTON_SIZE, [] -> void {});
 
-            return;
+            ImGui::SameLine();
+
+            auto* const next_texture_id = reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(*maybe_next_texture_id));
+            Gui::image_button(next_texture_id, BUTTON_SIZE, [this] -> void {
+                if (!sim->complete()) { sim->step(); }
+            });
         }
-
-        auto* const previous_texture_id =
-          reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(*maybe_previous_texture_id));
-        if (ImGui::ImageButton(previous_texture_id, BUTTON_SIZE)) {}
-
-        ImGui::SameLine();
-
-        auto* const next_texture_id = reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(*maybe_next_texture_id));
-        if (ImGui::ImageButton(next_texture_id, BUTTON_SIZE) && !sim->complete()) { sim->step(); }
     }
 
     static void draw_process(const auto& process)
     {
         if (process == nullptr) { return; }
 
-        if (ImGui::BeginChild("Scrollable Process", ImVec2(0, 0), 1, ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
-            if (ImGui::CollapsingHeader(std::string { process->name }.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::Indent();
+        Gui::child(
+          "###Scrollable Process",
+          Gui::ChildFlags::Border,
+          Gui::WindowFlags::AlwaysVerticalScrollbar,
+          [&] -> void {
+              if (ImGui::CollapsingHeader(std::string { process->name }.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+                  ImGui::Indent();
 
-                Gui::draw_text_formatted("Pid: {}", process->pid);
-                Gui::draw_text_formatted("Arrival Time: {}", process->arrival);
+                  Gui::text("Pid: {}", process->pid);
+                  Gui::text("Arrival Time: {}", process->arrival);
 
-                draw_events_table(process->events);
+                  draw_events_table(process->events);
 
-                ImGui::Unindent();
-            }
-
-            ImGui::EndChild();
-        }
+                  ImGui::Unindent();
+              }
+          }
+        );
     }
 
     void draw_running_process(const ImVec2& child_size)
     {
-        Gui::draw_titled_child("Running", child_size, [&] -> void {
-            if (ImGui::BeginChild("Scrollable Process", child_size, 1, ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
-                if (sim->running != nullptr) {
-                    if (ImGui::CollapsingHeader(
-                          std::string { sim->running->name }.c_str(), ImGuiTreeNodeFlags_DefaultOpen
-                        )) {
-                        ImGui::Indent();
+        Gui::title("Running", child_size, [&] -> void {
+            Gui::child(
+              "###Scrollable Process",
+              child_size,
+              Gui::ChildFlags::Border,
+              Gui::WindowFlags::AlwaysVerticalScrollbar,
+              [&] -> void {
+                  if (sim->running != nullptr) {
+                      if (ImGui::CollapsingHeader(
+                            std::string { sim->running->name }.c_str(), ImGuiTreeNodeFlags_DefaultOpen
+                          )) {
+                          ImGui::Indent();
 
-                        Gui::draw_text_formatted("Pid: {}", sim->running->pid);
-                        Gui::draw_text_formatted("Arrival Time: {}", sim->running->arrival);
+                          Gui::text("Pid: {}", sim->running->pid);
+                          Gui::text("Arrival Time: {}", sim->running->arrival);
 
-                        draw_events_table(sim->running->events);
+                          draw_events_table(sim->running->events);
 
-                        ImGui::Unindent();
-                    }
-                }
-            }
-            ImGui::EndChild();
+                          ImGui::Unindent();
+                      }
+                  }
+              }
+            );
         });
     }
 
-    static void draw_process_queue(
-      const std::string_view                                               title,
-      const auto& processes,
-      const ImVec2&                                                        child_size
-    )
+    static void draw_process_queue(const std::string& title, const auto& processes, const ImVec2& child_size)
     {
-        const auto null_terminated = std::string { title };
-
-        Gui::draw_titled_child(null_terminated, child_size, [&] -> void {
-            if (ImGui::BeginChild(null_terminated.c_str(), child_size, 1, ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
-                for (const auto& process : processes) { draw_process(process); }
-            }
-
-            ImGui::EndChild();
+        Gui::title(title, child_size, [&] -> void {
+            Gui::child(
+              title,
+              child_size,
+              Gui::ChildFlags::Border,
+              Gui::WindowFlags::AlwaysVerticalScrollbar,
+              [&] -> void {
+                  for (const auto& process : processes) { draw_process(process); }
+              }
+            );
         });
     }
 
@@ -232,10 +223,10 @@ class [[nodiscard]] SchedulerApp final
                 for (const auto& event : events) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    Gui::draw_text_formatted("{}", event.kind);
+                    Gui::text("{}", event.kind);
 
                     ImGui::TableSetColumnIndex(1);
-                    Gui::draw_text_formatted("{}", event.duration);
+                    Gui::text("{}", event.duration);
                 }
 
                 ImGui::EndTable();
@@ -245,11 +236,7 @@ class [[nodiscard]] SchedulerApp final
 
     ~SchedulerApp()
     {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
-        glfwDestroyWindow(window);
-        glfwTerminate();
+        Gui::shutdown(window);
     }
 
     SchedulerApp(const SchedulerApp&)            = delete;
@@ -261,7 +248,10 @@ class [[nodiscard]] SchedulerApp final
     explicit SchedulerApp(GLFWwindow* window, const std::shared_ptr<Simulations::Scheduler<SchedulePolicy>>& sim)
       : window { window },
         sim { sim }
-    {}
+    {
+        maybe_previous_texture_id = Gui::load_texture("resources/previous.png");
+        maybe_next_texture_id     = Gui::load_texture("resources/next.png");
+    }
 
   private:
     GLFWwindow*                                             window = nullptr;
