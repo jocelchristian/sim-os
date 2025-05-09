@@ -25,6 +25,7 @@ auto main(int argc, const char** argv) -> int
         std::println(stderr, "[ERROR] Could not correctly evaluate script {}", script_path);
     }
 
-    auto app = Gui::SchedulerApp<decltype(schedule_policy)>::create(sim);
+    auto app = SchedulerApp<decltype(schedule_policy)>::create(sim);
+    if (!app) { return 1; }
     app->render();
 }
