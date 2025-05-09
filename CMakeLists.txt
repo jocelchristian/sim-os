@@ -36,8 +36,8 @@ target_link_libraries(imgui PUBLIC glfw)
 
 add_executable(
     scheduler
-    src/gui/SchedulerApp.cpp
+    src/gui/scheduler/scheduler_main.cpp
 )
 target_include_directories(scheduler PRIVATE "${CMAKE_SOURCE_DIR}/src/" "${CMAKE_SOURCE_DIR}/include")
-target_link_libraries(scheduler PRIVATE sim-lang sim-simulations glfw imgui GL)
+target_link_libraries(scheduler PRIVATE sim-lang glfw imgui GL)
 

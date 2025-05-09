@@ -1,0 +1,8 @@
+MAX_PROCESSES :: 100
+MAX_EVENTS_PER_PROCESS :: 10
+MAX_SINGLE_EVENT_DURATION :: 10
+MAX_ARRIVAL_TIME :: 7
+
+for 0..10 {
+    spawn_random_process()
+}
