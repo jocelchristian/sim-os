@@ -19,14 +19,16 @@ concept Simulation = requires(SimType sim)
 
 struct [[nodiscard]] Scheduler final
 {
-    using ScheduleFn = std::function<void(Scheduler&)>;
+    using ProcessPtr   = std::shared_ptr<Os::Process>;
+    using ProcessQueue = std::deque<ProcessPtr>;
+    using ScheduleFn   = std::function<void(Scheduler&)>;
 
-    std::shared_ptr<Os::Process>             running;
-    std::deque<std::shared_ptr<Os::Process>> processes;
-    std::deque<std::shared_ptr<Os::Process>> waiting;
-    std::deque<std::shared_ptr<Os::Process>> ready;
-    ScheduleFn                               schedule_fn;
-    std::size_t                              timer = 0;
+    ProcessPtr   running;
+    ProcessQueue processes;
+    ProcessQueue waiting;
+    ProcessQueue ready;
+    ScheduleFn   schedule_fn;
+    std::size_t  timer = 0;
 
     template<std::invocable<Scheduler&> Callback>
     explicit Scheduler(Callback callback)
@@ -36,22 +38,19 @@ struct [[nodiscard]] Scheduler final
     [[nodiscard]] auto complete() const -> bool;
     void               step();
 
-    template <typename... Args>
-    constexpr auto emplace_process(Args&&... args) -> std::shared_ptr<Os::Process>
+    template<typename... Args>
+    constexpr auto emplace_process(Args&&... args) -> ProcessPtr
     {
         return processes.emplace_back(std::make_shared<Os::Process>(std::forward<Args>(args)...));
     }
 
-private:
+  private:
     void sidetrack_processes();
-    void dispatch_process_by_first_event(const std::shared_ptr<Os::Process>& process);
+    void dispatch_process_by_first_event(const ProcessPtr& process);
     void update_waiting_list();
     void update_running();
 
     [[nodiscard]] auto ensure_pid_is_unique(const std::size_t pid) const -> bool;
-
-    static void print_process_deque(const std::string_view name, const std::deque<std::shared_ptr<Os::Process>>& processes);
-    void print_all_queues() const;
 };
 
 } // namespace Simulations

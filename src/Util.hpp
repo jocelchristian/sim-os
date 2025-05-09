@@ -4,6 +4,10 @@
 #include <charconv>
 #include <print>
 #include <ranges>
+#include <filesystem>
+#include <optional>
+#include <sstream>
+#include <fstream>
 
 #if __clang__ || __GNUC__
 #define TRY(failable)                     \
@@ -49,6 +53,24 @@ namespace Util
         return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     });
     return result;
+}
+
+[[nodiscard]] static auto read_entire_file(const std::filesystem::path& file_path) -> std::optional<std::string>
+{
+    if (!std::filesystem::exists(file_path)) {
+        std::println(stderr, "[ERROR] Unable to read file {}: No such file or directory", file_path.string());
+        return std::nullopt;
+    }
+
+    if (!std::filesystem::is_regular_file(file_path)) {
+        std::println(stderr, "[ERROR] Unable to read file {}: Not a regular file", file_path.string());
+        return std::nullopt;
+    }
+
+    std::ifstream file(file_path);
+    std::stringstream ss;
+    ss << file.rdbuf();
+    return ss.str();
 }
 
 } // namespace Util

@@ -42,10 +42,12 @@ struct [[nodiscard]] Event final
 
 struct [[nodiscard]] Process final
 {
-    std::string_view  name;
-    std::size_t       pid;
-    std::size_t       arrival;
-    std::deque<Event> events;
+    using EventsQueue = std::deque<Event>;
+
+    std::string_view name;
+    std::size_t      pid;
+    std::size_t      arrival;
+    EventsQueue      events;
 };
 
 } // namespace Os

@@ -1,6 +1,5 @@
 add_library(
     sim-lang
-    Interpreter.cpp
     Lexer.cpp
     Parser.cpp
 )

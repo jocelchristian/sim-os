@@ -10,39 +10,16 @@ namespace Simulations
 
 void Scheduler::step()
 {
-    std::println("--- Stepping simulation (timer: {}) ---", timer);
-
-    std::println("1. Switch all available processes in either ready/waiting queue");
-    // 1. Switch all available processes in either the ready queue or the
-    // waiting queue
     sidetrack_processes();
-
-    print_all_queues();
-
-    std::println("2. Scan waiting list and dispatch all processes whose wait terminates");
-    // 2. Scan waiting list and put in ready queue all the processes whose
-    // event terminates in this timer
     update_waiting_list();
-
-    print_all_queues();
-
-    std::println("3. Update the running process");
-    // 3. Decrement event of running & eventually reschedule if event is over
     update_running();
 
-    print_all_queues();
-
-    std::println("4. Call the scheduler");
-    // 4. Call the scheduler
     if ((schedule_fn != nullptr) && !running) { schedule_fn(*this); }
     if (!running && ready.size() > 0) {
         running = ready.front();
         ready.pop_front();
     }
 
-    print_all_queues();
-
-    // 5. Update timer
     ++timer;
 }
 
@@ -77,7 +54,7 @@ void Scheduler::sidetrack_processes()
     }
 }
 
-void Scheduler::dispatch_process_by_first_event(const std::shared_ptr<Os::Process>& process)
+void Scheduler::dispatch_process_by_first_event(const ProcessPtr& process)
 {
     static_assert(
       std::to_underlying(Os::EventKind::Count) == 2,
@@ -151,24 +128,5 @@ void Scheduler::update_running()
     return (!running || running->pid != pid) && std::ranges::find_if(ready, comparator) == ready.end()
            && std::ranges::find_if(waiting, comparator) == waiting.end();
 }
-
-void Scheduler::print_process_deque(const std::string_view name, const std::deque<std::shared_ptr<Os::Process>>& processes)
-{
-    std::println("{} [", name);
-    for (const auto& process : processes) {
-        if (process) {
-            std::println("    {}", *process);
-        }
-    }
-    std::println("]");
-}
-
-void Scheduler::print_all_queues() const
-{
-    print_process_deque("Ready", ready);
-    print_process_deque("Waiting", waiting);
-    if (running) { std::println("Running = {:s}", *running); }
-}
-
 
 } // namespace Simulations

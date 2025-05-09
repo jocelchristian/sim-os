@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <imgui.h>
 #include "GLFW/glfw3.h"
 #include "simulations/Scheduler.hpp"
 
@@ -16,9 +17,13 @@ class [[nodiscard]] SchedulerApp final
     constexpr static auto GLSL_VERSION  = "#version 330";
 
   public:
-    [[nodiscard]] static auto create(const std::shared_ptr<Simulations::Scheduler>& sim) -> std::unique_ptr<SchedulerApp>;
+    [[nodiscard]] static auto create(const std::shared_ptr<Simulations::Scheduler>& sim)
+      -> std::unique_ptr<SchedulerApp>;
 
     void render();
+
+    void draw_statistics(const ImVec2& child_size);
+    void draw_control_buttons();
 
     ~SchedulerApp();
 
@@ -31,9 +36,12 @@ class [[nodiscard]] SchedulerApp final
     explicit SchedulerApp(GLFWwindow* window, const std::shared_ptr<Simulations::Scheduler>& sim);
 
   private:
-    GLFWwindow* window = nullptr;
-    bool        quit   = false;
+    GLFWwindow*                             window = nullptr;
+    bool                                    quit   = false;
     std::shared_ptr<Simulations::Scheduler> sim;
+    bool                                    stepped_this_frame = false;
+    std::optional<GLuint> maybe_previous_texture_id;
+    std::optional<GLuint> maybe_next_texture_id;
 };
 
 } // namespace Gui
