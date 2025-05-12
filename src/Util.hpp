@@ -73,4 +73,26 @@ namespace Util
     return ss.str();
 }
 
+template <typename... Lambdas>
+struct [[nodiscard]] Visitor : public Lambdas...
+{
+    using Lambdas::operator()...;
+};
+
+template <typename... Lambdas>
+[[nodiscard]] constexpr static auto make_visitor(Lambdas... lambdas) -> Visitor<Lambdas...>
+{
+    return Visitor { lambdas... };
+}
+
+template <typename Alternative>
+[[nodiscard]] auto get(const auto& variant) -> std::optional<Alternative>
+{
+    if (const auto* value = std::get_if<Alternative>(&variant)) {
+        return *value;
+    }
+
+    return std::nullopt;
+}
+
 } // namespace Util

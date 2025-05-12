@@ -118,7 +118,6 @@ class [[nodiscard]] Interpreter final
         return interpreter.evaluate_ast().has_value();
     }
 
-  private:
     [[nodiscard]] auto evaluate_ast() -> std::optional<bool>
     {
         bool failed = false;
@@ -198,111 +197,105 @@ class [[nodiscard]] Interpreter final
         return std::ranges::contains(builtins, token.lexeme);
     }
 
-    [[nodiscard]] auto list_as_events_deque(const std::vector<Value>& list) const
-      -> std::optional<std::deque<Os::Event>>
-    {
-        std::deque<Os::Event> events = {};
-        for (const auto& tuple_value : list) {
-            const auto tuple = TRY(tuple_value.as_value_list_or([&] -> std::optional<std::vector<Value>> {
-                report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
-                return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
-            }));
-
-            const auto event_kind_str = TRY(tuple[0].as_string_or([&] -> std::optional<std::string_view> {
-                report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
-                return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
-            }));
-
-            const auto duration = TRY(tuple[1].as_number_or([&] -> std::optional<std::size_t> {
-                report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
-                return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
-            }));
-
-            const auto maybe_event_kind = Os::event_kind_try_from_str(event_kind_str);
-            if (!maybe_event_kind) {
-                report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
-                return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
-            }
-
-            events.push_back(Os::Event { .kind = *maybe_event_kind, .duration = duration });
-        }
-
-        return events;
-    }
-
-    [[nodiscard]] auto spawn_process_builtin(const std::vector<Expression>& arguments) -> std::optional<Value>
-    {
-        constexpr static auto NAME = "spawn_process";
-        constexpr static auto ARGC = 4;
-        if (arguments.size() != ARGC) { report_function_call_mismatched_argc(NAME, arguments.size()); }
-
-        std::size_t argument_count     = 0;
-        const auto  process_name_value = TRY(evaluate_expression(arguments[argument_count++]));
-        const auto  process_name       = TRY(process_name_value.as_string_or([&] -> std::optional<std::string_view> {
-            return report_error(
-              "mismatched type for argument #{} of builting `{}`: expected type `string`", argument_count - 1, NAME
-            );
-        }));
-
-        const auto pid_value = TRY(evaluate_expression(arguments[argument_count++]));
-        const auto pid       = TRY(pid_value.as_number_or([&] -> std::optional<std::size_t> {
-            return report_error(
-              "mismatched type for argument #{} of builting `{}`: expected type `int`", argument_count - 1, NAME
-            );
-        }));
-
-        const auto arrival_value = TRY(evaluate_expression(arguments[argument_count++]));
-        const auto arrival       = TRY(arrival_value.as_number_or([&] -> std::optional<std::size_t> {
-            return report_error(
-              "mismatched type for argument #{} of builting `{}`: expected type `int`", argument_count - 1, NAME
-            );
-        }));
-
-        const auto list_value = TRY(evaluate_expression(arguments[argument_count++]));
-        const auto list       = TRY(list_value.as_value_list_or([&] -> std::optional<std::vector<Value>> {
-            report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
-            return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
-        }));
-
-        const auto events = TRY(list_as_events_deque(list));
-        sim->emplace_process(process_name, pid, arrival, events);
-
-        return Value();
-    }
-
+    // FIXME: I'm still not happy with this but it is going in the right direction, i think
+    //        we need to figure out a way to do a better error handling, like a report_error helper?
     [[nodiscard]] auto builtin_handler(const std::string_view name, const std::vector<ExpressionId>& arguments)
       -> std::optional<Value>
     {
-        const auto arguments_exprs = materialize_expressions(arguments);
+        // TODO: abstract this in some way later
+        if (name == "spawn_process") {
+            if (arguments.size() != 4) {
+                return report_error(
+                  "failed to interpret call to builtin `{}`: expected 4 arguments, {} were provided",
+                  name,
+                  arguments.size()
+                );
+            }
 
-        if (name == "spawn_process") { return spawn_process_builtin(arguments_exprs); }
+            const auto arguments_exprs = materialize_expressions(arguments);
+
+            std::size_t argument_count     = 0;
+            const auto  process_name_value = TRY(evaluate_expression(arguments_exprs[argument_count++]));
+            const auto  process_name = TRY(process_name_value.as_string_or([&] -> std::optional<std::string_view> {
+                return report_error(
+                  "mismatched type for argument #{} of builting `{}`: expected type `string`", argument_count - 1, name
+                );
+            }));
+
+            const auto pid_value = TRY(evaluate_expression(arguments_exprs[argument_count++]));
+            const auto pid       = TRY(pid_value.as_number_or([&] -> std::optional<std::size_t> {
+                return report_error(
+                  "mismatched type for argument #{} of builting `{}`: expected type `int`", argument_count - 1, name
+                );
+            }));
+
+            const auto arrival_value = TRY(evaluate_expression(arguments_exprs[argument_count++]));
+            const auto arrival       = TRY(arrival_value.as_number_or([&] -> std::optional<std::size_t> {
+                return report_error(
+                  "mismatched type for argument #{} of builting `{}`: expected type `int`", argument_count - 1, name
+                );
+            }));
+
+            const auto list_value = TRY(evaluate_expression(arguments_exprs[argument_count++]));
+            const auto list       = TRY(list_value.as_value_list_or([&] -> std::optional<std::vector<Value>> {
+                report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
+                return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
+            }));
+
+            // FIXME: Improve this error handling
+            std::deque<Os::Event> events;
+            for (const auto& tuple_value : list) {
+                const auto tuple = TRY(tuple_value.as_value_list_or([&] -> std::optional<std::vector<Value>> {
+                    report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`"
+                    );
+                    return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
+                }));
+
+                const auto event_kind_str = TRY(tuple[0].as_string_or([&] -> std::optional<std::string_view> {
+                    report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`"
+                    );
+                    return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
+                }));
+
+                const auto duration = TRY(tuple[1].as_number_or([&] -> std::optional<std::size_t> {
+                    report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`"
+                    );
+                    return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
+                }));
+
+                const auto maybe_event_kind = Os::event_kind_try_from_str(event_kind_str);
+                if (!maybe_event_kind) {
+                    report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`"
+                    );
+                    return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
+                }
+
+                events.push_back(Os::Event { .kind = *maybe_event_kind, .duration = duration });
+            }
+
+            sim->emplace_process(process_name, pid, arrival, events);
+        }
 
         return Value();
-    }
-
-    static auto report_function_call_mismatched_argc(
-      const std::string_view name,
-      const std::size_t      got
-    ) -> std::nullopt_t
-    {
-        return report_error(
-          "failed to interpret call to builtin `{}`: expected 4 arguments, {} were provided", name, got
-        );
     }
 
     template<typename... Args>
     static auto report_error(const std::string_view message, Args&&... args) -> std::nullopt_t
     {
         std::println(stderr, "[ERROR] (interpreter) {}", message, std::forward<Args>(args)...);
-        return std::nullopt;
     }
 
     template<typename... Args>
     static auto report_note(const std::string_view message, Args&&... args) -> std::nullopt_t
     {
         std::println(stderr, "[NOTE] (interpreter) {}", message, std::forward<Args>(args)...);
-        return std::nullopt;
     }
+
+  private:
+    explicit Interpreter(const std::shared_ptr<Sim>& sim, Ast ast)
+      : sim { sim },
+        ast { std::move(ast) }
+    {}
 
     [[nodiscard]] auto materialize_expressions(const std::vector<ExpressionId>& expr_ids) const
       -> std::vector<Expression>
@@ -312,11 +305,6 @@ class [[nodiscard]] Interpreter final
                )
                | std::ranges::to<std::vector>();
     }
-
-    explicit Interpreter(const std::shared_ptr<Sim>& sim, Ast ast)
-      : sim { sim },
-        ast { std::move(ast) }
-    {}
 
     std::shared_ptr<Sim> sim;
     Ast                  ast;
