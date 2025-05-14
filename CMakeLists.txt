@@ -53,4 +53,5 @@ add_executable(
 )
 target_include_directories(scheduler PRIVATE "${CMAKE_SOURCE_DIR}/src/" "${CMAKE_SOURCE_DIR}/include")
 target_link_libraries(scheduler PRIVATE sim-lang GL glfw imgui implot)
+target_compile_definitions(scheduler PRIVATE $<$<CONFIG:Debug>:DEBUG>)
 

@@ -140,11 +140,15 @@ class [[nodiscard]] SchedulerApp final
               Gui::WindowFlags::AlwaysVerticalScrollbar,
               [&] {
                   Gui::draw_table(TABLE_NAME, HEADERS, Gui::TableFlags::Borders | Gui::TableFlags::RowBackground, [&] {
-                      Gui::draw_table_row([&] { Gui::text("Scheduler Policy", SchedulePolicy::POLICY_NAME); });
-                      Gui::draw_table_row([&] { Gui::text("Ready queue size", sim->ready.size()); });
-                      Gui::draw_table_row([&] { Gui::text("Waiting queue size", sim->waiting.size()); });
-                      Gui::draw_table_row([&] { Gui::text("Arrival size", sim->processes.size()); });
-                      Gui::draw_table_row([&] { Gui::text("Timer", sim->timer); });
+                      const auto draw_key_value = [](const std::string_view key, const auto& value) {
+                          Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}", value); });
+                      };
+
+                      draw_key_value("Scheduler Policy", SchedulePolicy::POLICY_NAME);
+                      draw_key_value("Ready queue size", sim->ready.size());
+                      draw_key_value("Waiting queue size", sim->waiting.size());
+                      draw_key_value("Arrival size", sim->processes.size());
+                      draw_key_value("Timer", sim->timer);
                   });
               }
             );
@@ -243,8 +247,8 @@ class [[nodiscard]] SchedulerApp final
 
     static void draw_events_table(const Os::Process::EventsQueue& events)
     {
-        constexpr static auto TABLE_NAME   = "EventsTable";
-        constexpr static auto HEADERS      = { "Event", "Duration", "Resource Usage" };
+        constexpr static auto TABLE_NAME = "EventsTable";
+        constexpr static auto HEADERS    = { "Event", "Duration", "Resource Usage" };
 
         if (!events.empty()) {
             Gui::draw_table(TABLE_NAME, HEADERS, Gui::TableFlags::Borders | Gui::TableFlags::RowBackground, [&] {

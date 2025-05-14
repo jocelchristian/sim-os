@@ -101,7 +101,6 @@ struct std::formatter<Os::Event>
     }
 };
 
-// FIXME: add possibility for this formatters to print on a single line
 template<>
 struct std::formatter<std::deque<Os::Event>>
 {

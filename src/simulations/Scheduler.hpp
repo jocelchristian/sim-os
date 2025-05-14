@@ -166,11 +166,7 @@ struct [[nodiscard]] Scheduler final
 
         if (current_event.duration == 0) {
             process->events.pop_front();
-            if (!process->events.empty()) {
-                dispatch_process_by_first_event(process);
-            } else {
-                std::println("Process {} with pid {} has terminated", process->name, process->pid);
-            }
+            if (!process->events.empty()) { dispatch_process_by_first_event(process); }
 
             running = nullptr;
         }

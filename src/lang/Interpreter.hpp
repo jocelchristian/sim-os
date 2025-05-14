@@ -88,21 +88,19 @@ class [[nodiscard]] Interpreter final
   public:
     [[nodiscard]] static auto eval(const std::string_view file_content, const std::shared_ptr<Sim>& sim) -> bool
     {
-        // TODO: introduce flags to disable the verbose output
-        // Lex the file
-        std::println("--- Lexing file ---");
         const auto tokens = Lexer::lex(file_content);
         if (!tokens) { return false; }
 
+#ifdef DEBUG
         std::println("- Tokens -");
         for (const auto& [idx, token] : std::views::zip(std::views::iota(0), *tokens)) {
             std::println("#{}: {}", idx, token);
         }
+#endif
 
-        // Generate AST
-        std::println("--- Generating AST ---");
         const auto ast = Parser::parse(*tokens);
 
+#ifdef DEBUG
         std::println("- Statements -");
         if (!ast) { return false; }
         for (const auto& [idx, statement] : std::views::zip(std::views::iota(0), ast->statements)) {
@@ -113,8 +111,9 @@ class [[nodiscard]] Interpreter final
         for (const auto& [idx, expression] : std::views::zip(std::views::iota(0), ast->expressions)) {
             std::println("#{}: {}", idx, expression);
         }
+#endif
 
-        // Evaluate AST
+
         Interpreter interpreter(sim, *ast);
         return interpreter.evaluate_ast().has_value();
     }
