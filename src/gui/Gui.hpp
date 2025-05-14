@@ -5,12 +5,15 @@
 #include <functional>
 #include <optional>
 #include <print>
+#include <span>
 
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <string>
+#include <utility>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -236,6 +239,64 @@ static void draw_call(GLFWwindow* window, const ImVec4& clear_color)
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(window);
+}
+
+enum class TableFlags : std::uint32_t
+{
+    RowBackground          = 1 << 6,
+    BordersInnerHorizontal = 1 << 7,
+    BordersOuterHorizontal = 1 << 8,
+    BordersInnerVertical   = 1 << 9,
+    BordersOuterVertical   = 1 << 10,
+    BordersInner           = BordersInnerVertical | BordersInnerHorizontal,
+    BordersOuter           = BordersOuterVertical | BordersOuterHorizontal,
+    Borders                = BordersInner | BordersOuter,
+};
+
+[[nodiscard]] static auto operator|(TableFlags lhs, TableFlags rhs) -> TableFlags
+{
+    return static_cast<TableFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+template<std::invocable Callback>
+static void
+  draw_table(const std::string& name, const std::span<const char* const> headers, TableFlags flags, Callback&& callback)
+{
+    if (ImGui::BeginTable(name.c_str(), headers.size(), std::to_underlying(flags))) {
+        for (const auto& header : headers) { ImGui::TableSetupColumn(header); }
+        ImGui::TableHeadersRow();
+        std::invoke(std::forward<Callback>(callback));
+        ImGui::EndTable();
+    }
+}
+
+template<typename... Callbacks>
+static void draw_table_row(Callbacks&&... callbacks)
+{
+    ImGui::TableNextRow();
+
+    int column = 0;
+    ((ImGui::TableSetColumnIndex(column++), std::invoke(std::forward<Callbacks>(callbacks))), ...);
+}
+
+enum class TreeNodeFlags : std::uint8_t
+{
+    DefaultOpen = 1 << 5,
+};
+
+[[nodiscard]] static auto operator|(TreeNodeFlags lhs, TreeNodeFlags rhs) -> TreeNodeFlags
+{
+    return static_cast<TreeNodeFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+template<std::invocable Callback>
+static void collapsing(const std::string& name, TreeNodeFlags flags, Callback&& callback)
+{
+    if (ImGui::CollapsingHeader(name.c_str(), std::to_underlying(flags))) {
+        ImGui::Indent();
+        std::invoke(std::forward<Callback>(callback));
+        ImGui::Unindent();
+    }
 }
 
 } // namespace Gui
