@@ -300,6 +300,9 @@ class [[nodiscard]] SchedulerApp final
     {
         Gui::shutdown(window);
         ImPlot::DestroyContext();
+        glDeleteTextures(1, &(*maybe_previous_texture_id));
+        glDeleteTextures(1, &(*maybe_play_texture_id));
+        glDeleteTextures(1, &(*maybe_next_texture_id));
     }
 
     SchedulerApp(const SchedulerApp&)            = delete;
