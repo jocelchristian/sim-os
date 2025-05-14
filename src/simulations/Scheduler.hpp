@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iterator>
 #include <memory>
 
 #include "os/Os.hpp"

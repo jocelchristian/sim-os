@@ -70,6 +70,15 @@ class [[nodiscard]] SchedulerApp final
             stepped_this_frame = false;
             if (glfwWindowShouldClose(window) == 1) { quit = true; }
 
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
+                should_finish = true;
+            }
+
+            if (!sim->complete() && should_finish && !stepped_this_frame) {
+                sim->step();
+                stepped_this_frame = true;
+            }
+
             if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
                 if (!sim->complete() && !stepped_this_frame) {
                     sim->step();
@@ -166,6 +175,12 @@ class [[nodiscard]] SchedulerApp final
             ImGui::SameLine();
 
             Gui::button("Next", [this] -> void {
+                if (!sim->complete()) { should_finish = true; }
+            });
+
+            ImGui::SameLine();
+
+            Gui::button("Next", [this] -> void {
                 if (!sim->complete()) { sim->step(); }
             });
         } else {
@@ -173,6 +188,13 @@ class [[nodiscard]] SchedulerApp final
             auto* const previous_texture_id =
               reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(*maybe_previous_texture_id));
             Gui::image_button(previous_texture_id, BUTTON_SIZE, [] -> void {});
+
+            ImGui::SameLine();
+
+            auto* const play_texture_id = reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(*maybe_play_texture_id));
+            Gui::image_button(play_texture_id, BUTTON_SIZE, [this] -> void {
+                if (!sim->complete()) { should_finish = true; }
+            });
 
             ImGui::SameLine();
 
@@ -329,6 +351,7 @@ class [[nodiscard]] SchedulerApp final
         sim { sim }
     {
         maybe_previous_texture_id = Gui::load_texture("resources/previous.png");
+        maybe_play_texture_id = Gui::load_texture("resources/play.png");
         maybe_next_texture_id     = Gui::load_texture("resources/next.png");
     }
 
@@ -336,7 +359,9 @@ class [[nodiscard]] SchedulerApp final
     GLFWwindow*                                             window = nullptr;
     bool                                                    quit   = false;
     std::shared_ptr<Simulations::Scheduler<SchedulePolicy>> sim;
+    bool                                                    should_finish = false;
     bool                                                    stepped_this_frame = false;
     std::optional<GLuint>                                   maybe_previous_texture_id;
+    std::optional<GLuint>                                   maybe_play_texture_id;
     std::optional<GLuint>                                   maybe_next_texture_id;
 };
