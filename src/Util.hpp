@@ -1,10 +1,10 @@
 #pragma once
 
 #include <algorithm>
-#include <random>
 #include <charconv>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <optional>
 #include <print>
 #include <random>
@@ -97,9 +97,19 @@ template<typename Alternative>
 
 [[nodiscard]] static auto random_float() -> float
 {
-    std::random_device rd;
-    std::mt19937       gen(rd());
+    std::random_device                    rd;
+    std::mt19937                          gen(rd());
     std::uniform_real_distribution<float> dis(0.0F, 1.0F);
+    return dis(gen);
+}
+
+[[nodiscard]] static auto random_natural(const std::size_t min, const std::size_t max) -> std::size_t
+{
+    if (max == 0) { return 0; }
+
+    std::random_device                         rd;
+    std::mt19937                               gen(rd());
+    std::uniform_int_distribution<std::size_t> dis(min, max);
     return dis(gen);
 }
 

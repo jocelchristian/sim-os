@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include <memory>
 
 #include "os/Os.hpp"
@@ -30,6 +31,11 @@ struct [[nodiscard]] Scheduler final
     std::size_t    timer     = 0;
     float          cpu_usage = 0;
 
+    std::size_t max_processes             = std::numeric_limits<std::size_t>::max();
+    std::size_t max_events_per_process    = std::numeric_limits<std::size_t>::max();
+    std::size_t max_single_event_duration = std::numeric_limits<std::size_t>::max();
+    std::size_t max_arrival_time          = std::numeric_limits<std::size_t>::max();
+
     template<std::invocable<Scheduler&> Policy>
     explicit Scheduler(Policy policy)
       : schedule_policy { policy }
@@ -54,7 +60,7 @@ struct [[nodiscard]] Scheduler final
 
         if (running && !running->events.empty()) {
             const auto& next_event = running->events.front();
-            cpu_usage = next_event.resource_usage;
+            cpu_usage              = next_event.resource_usage;
         }
 
         if (complete()) { cpu_usage = 0.0F; };
@@ -132,6 +138,7 @@ struct [[nodiscard]] Scheduler final
 
             auto& current_event = process->events.front();
             assert(current_event.kind == Os::EventKind::Io && "process in waiting queue must be on an IO event");
+            assert(current_event.duration > 0);
             --current_event.duration;
 
             if (current_event.duration == 0) {
@@ -154,6 +161,7 @@ struct [[nodiscard]] Scheduler final
 
         auto& current_event = process->events.front();
         assert(current_event.kind == Os::EventKind::Cpu && "process running must be on an CPU event");
+        assert(current_event.duration > 0);
         --current_event.duration;
 
         if (current_event.duration == 0) {

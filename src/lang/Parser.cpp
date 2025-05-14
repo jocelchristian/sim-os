@@ -24,7 +24,20 @@ auto Parser::expression_statement() -> std::optional<Statement>
     return Statement { .kind = expr.id, .span = expr.span, .id = expr.id };
 }
 
-auto Parser::expression() -> std::optional<Expression> { return primary_expression(); }
+auto Parser::expression() -> std::optional<Expression>
+{
+    const auto current_token = TRY(peek());
+    switch (current_token.kind) {
+        case TokenKind::Keyword: {
+            if (current_token.lexeme == "for") { return for_loop(); }
+        }
+        default: {
+            return primary_expression();
+        }
+    }
+
+    assert(false && "unreachable");
+}
 
 auto Parser::primary_expression() -> std::optional<Expression>
 {
@@ -40,6 +53,8 @@ auto Parser::primary_expression() -> std::optional<Expression>
             // FIXME: This is a hack
             if (const auto maybe_token = peek(1); maybe_token && maybe_token->kind == TokenKind::LeftParen) {
                 return call_expression();
+            } else if (const auto maybe_token = peek(1); maybe_token && maybe_token->kind == TokenKind::ColonColon) {
+                return constant_definition();
             } else {
                 TRY(consume_then_match(TokenKind::Identifier));
                 return ast.emplace_expression(Variable { .name = token }, token.span, expression_id++);
@@ -186,6 +201,69 @@ auto Parser::call_expression_arguments() -> std::optional<std::vector<Expression
     }
 
     return result;
+}
+
+auto Parser::constant_definition() -> std::optional<Expression>
+{
+    const auto name = TRY(identifier());
+
+    (void)TRY(consume_then_match(TokenKind::ColonColon));
+
+    const auto value = TRY(primary_expression());
+
+    return ast.emplace_expression(
+      Constant {
+        .name  = name,
+        .value = value.id,
+      },
+      Span::join(name.span, value.span),
+      expression_id++
+    );
+}
+
+auto Parser::for_loop() -> std::optional<Expression>
+{
+    const auto for_token = TRY(consume_then_match(TokenKind::Keyword));
+    assert(for_token.lexeme == "for" && "unreachable");
+
+    const auto range_expression = TRY(range());
+
+    const auto left_curly = TRY(consume_then_match(TokenKind::LeftCurly));
+    assert(left_curly.lexeme[0] == '{' && "unreachable");
+
+    std::vector<ExpressionId> body;
+    auto                      last_span = left_curly.span;
+    for (auto current_token = peek(); current_token && current_token->kind != TokenKind::RightCurly;
+         current_token      = next()) {
+        const auto expr = TRY(expression());
+        body.push_back(expr.id);
+        last_span = expr.span;
+    }
+
+    return ast.emplace_expression(
+      For {
+        .range = range_expression.id,
+        .body  = body,
+      },
+      Span::join(for_token.span, last_span),
+      expression_id++
+    );
+}
+
+auto Parser::range() -> std::optional<Expression>
+{
+    const auto start_range = TRY(consume_then_match(TokenKind::Number));
+    const auto dotdot      = TRY(consume_then_match(TokenKind::DotDot));
+    const auto end_range   = TRY(consume_then_match(TokenKind::Number));
+
+    return ast.emplace_expression(
+      Range {
+        .start = start_range,
+        .end   = end_range,
+      },
+      Span::join(start_range.span, end_range.span),
+      expression_id++
+    );
 }
 
 auto Parser::identifier() -> std::optional<Token> { return consume_then_match(TokenKind::Identifier); }

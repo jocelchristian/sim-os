@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstring>
 #include <deque>
+#include <iterator>
 #include <memory>
 #include <print>
 #include <ranges>
@@ -139,6 +140,10 @@ class [[nodiscard]] Interpreter final
 
     [[nodiscard]] auto evaluate_expression(const Expression& expression) -> std::optional<Value>
     {
+        static_assert(
+          std::variant_size_v<ExpressionKind> == 9,
+          "Exhaustive handling for all variants for ExpressionKind is required"
+        );
         const auto call_expression_visitor = [this](const Call& call_expression) -> std::optional<Value> {
             const auto& [name, arguments] = call_expression;
             if (is_builtin(name)) {
@@ -186,15 +191,72 @@ class [[nodiscard]] Interpreter final
             return Value(variable.name.lexeme);
         };
 
+        const auto constant_visitor = [this](const Constant& constant) -> std::optional<Value> {
+            const auto name   = constant.name.lexeme;
+            const auto number = TRY(Util::get<Number>(ast.expression_by_id(constant.value).kind));
+
+            if (name == "max_processes") {
+                sim->max_processes = TRY(Util::parse_number(number.number.lexeme));
+            } else if (name == "max_events_per_process") {
+                sim->max_events_per_process = TRY(Util::parse_number(number.number.lexeme));
+            } else if (name == "max_single_event_duration") {
+                sim->max_single_event_duration = TRY(Util::parse_number(number.number.lexeme));
+            } else if (name == "max_arrival_time") {
+                sim->max_arrival_time = TRY(Util::parse_number(number.number.lexeme));
+            } else {
+                report_error("invalid constant for current simulation: {}", name);
+                report_note(
+                  "available constants are: max_processes, max_events_per_process, max_single_event_duration, "
+                  "max_arrival_time"
+                );
+            }
+
+
+            return Value();
+        };
+
+        const auto range_visitor = [this](const Range& range) -> std::optional<Value> {
+            const auto start = TRY(Util::parse_number(range.start.lexeme));
+            const auto end   = TRY(Util::parse_number(range.end.lexeme));
+            return Value(std::vector { Value(start), Value(end) });
+        };
+
+        const auto for_visitor = [this](const For& four) -> std::optional<Value> {
+            return evalute_for_expression(four);
+        };
+
         const auto visitor = Util::make_visitor(
-          call_expression_visitor, string_literal_visitor, number_visitor, list_visitor, tuple_visitor, variable_visitor
+          call_expression_visitor,
+          string_literal_visitor,
+          number_visitor,
+          list_visitor,
+          tuple_visitor,
+          variable_visitor,
+          constant_visitor,
+          range_visitor,
+          for_visitor
         );
+
         return std::visit(visitor, expression.kind);
+    }
+
+    [[nodiscard]] auto evalute_for_expression(const For& four) -> std::optional<Value>
+    {
+        const auto  range = TRY(Util::get<Range>(ast.expression_by_id(four.range).kind));
+        const auto& start = TRY(Util::parse_number(range.start.lexeme));
+        const auto& end   = TRY(Util::parse_number(range.end.lexeme));
+
+        const auto body = materialize_expressions(four.body);
+        for (std::size_t i = start; i < end; ++i) {
+            for (const auto& expr : body) { (void)evaluate_expression(expr); }
+        }
+
+        return Value();
     }
 
     [[nodiscard]] constexpr static auto is_builtin(const Token& token) -> bool
     {
-        constexpr static std::string_view builtins[] = { "spawn_process" };
+        constexpr static std::string_view builtins[] = { "spawn_process", "spawn_random_process" };
         return std::ranges::contains(builtins, token.lexeme);
     }
 
@@ -224,8 +286,9 @@ class [[nodiscard]] Interpreter final
                 return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
             }
 
-            events.push_back(Os::Event {
-              .kind = *maybe_event_kind, .duration = duration, .resource_usage = std::max(0.01F, Util::random_float()) });
+            events.push_back(Os::Event { .kind           = *maybe_event_kind,
+                                         .duration       = duration,
+                                         .resource_usage = std::max(0.01F, Util::random_float()) });
         }
 
         return events;
@@ -271,12 +334,50 @@ class [[nodiscard]] Interpreter final
         return Value();
     }
 
+    [[nodiscard]] auto spawn_random_process_builtin(const std::vector<Expression>& arguments) -> std::optional<Value>
+    {
+        static std::vector<std::size_t> spawned_pids;
+
+        constexpr static auto NAME = "spawn_process";
+        constexpr static auto ARGC = 0;
+        if (arguments.size() != ARGC) { report_function_call_mismatched_argc(NAME, arguments.size()); }
+
+        auto pid = Util::random_natural(0, sim->max_processes);
+        while (std::ranges::contains(spawned_pids, pid)) { pid = Util::random_natural(0, sim->max_processes); }
+        spawned_pids.push_back(pid);
+
+        const auto arrival = Util::random_natural(0, sim->max_arrival_time);
+
+        std::deque<Os::Event> events;
+        const auto            events_count = Util::random_natural(1, sim->max_events_per_process);
+        for (std::size_t i = 0; i < events_count; ++i) { events.push_back(process_random_event()); }
+
+        sim->emplace_process("Process", pid, arrival, events);
+
+        return Value();
+    }
+
+    [[nodiscard]] auto process_random_event() const -> Os::Event
+    {
+        const auto kind =
+          static_cast<Os::EventKind>(Util::random_natural(0, std::to_underlying(Os::EventKind::Count) - 1));
+
+        const auto duration = Util::random_natural(1, sim->max_single_event_duration);
+
+        return Os::Event {
+            .kind           = kind,
+            .duration       = duration,
+            .resource_usage = std::max(0.01F, Util::random_float()),
+        };
+    }
+
     [[nodiscard]] auto builtin_handler(const std::string_view name, const std::vector<ExpressionId>& arguments)
       -> std::optional<Value>
     {
         const auto arguments_exprs = materialize_expressions(arguments);
 
         if (name == "spawn_process") { return spawn_process_builtin(arguments_exprs); }
+        if (name == "spawn_random_process") { return spawn_random_process_builtin(arguments_exprs); }
 
         return Value();
     }

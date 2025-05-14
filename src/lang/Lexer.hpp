@@ -21,6 +21,8 @@ class [[nodiscard]] Lexer final
     [[nodiscard]] auto keyword_or_identifier() -> std::optional<Token>;
     [[nodiscard]] auto string_literal() -> std::optional<Token>;
     [[nodiscard]] auto number() -> std::optional<Token>;
+    [[nodiscard]] auto colon() -> std::optional<Token>;
+    [[nodiscard]] auto dotdot() -> std::optional<Token>;
 
     [[nodiscard]] auto has_more() const -> bool;
     [[nodiscard]] auto next_token() -> std::optional<Token>;

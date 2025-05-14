@@ -70,9 +70,7 @@ class [[nodiscard]] SchedulerApp final
             stepped_this_frame = false;
             if (glfwWindowShouldClose(window) == 1) { quit = true; }
 
-            if (ImGui::IsKeyPressed(ImGuiKey_Enter, false)) {
-                should_finish = true;
-            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter, false)) { should_finish = true; }
 
             if (!sim->complete() && should_finish && !stepped_this_frame) {
                 sim->step();
@@ -214,7 +212,10 @@ class [[nodiscard]] SchedulerApp final
           Gui::ChildFlags::Border,
           Gui::WindowFlags::AlwaysVerticalScrollbar,
           [&] -> void {
-              if (ImGui::CollapsingHeader(std::string { process->name }.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+              auto header_title = std::format("{} #{}", process->name, process->pid);
+              if (process->name != "Process") { header_title = std::string { process->name }; }
+
+              if (ImGui::CollapsingHeader(header_title.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
                   ImGui::Indent();
 
                   Gui::text("Pid: {}", process->pid);
@@ -351,7 +352,7 @@ class [[nodiscard]] SchedulerApp final
         sim { sim }
     {
         maybe_previous_texture_id = Gui::load_texture("resources/previous.png");
-        maybe_play_texture_id = Gui::load_texture("resources/play.png");
+        maybe_play_texture_id     = Gui::load_texture("resources/play.png");
         maybe_next_texture_id     = Gui::load_texture("resources/next.png");
     }
 
@@ -359,7 +360,7 @@ class [[nodiscard]] SchedulerApp final
     GLFWwindow*                                             window = nullptr;
     bool                                                    quit   = false;
     std::shared_ptr<Simulations::Scheduler<SchedulePolicy>> sim;
-    bool                                                    should_finish = false;
+    bool                                                    should_finish      = false;
     bool                                                    stepped_this_frame = false;
     std::optional<GLuint>                                   maybe_previous_texture_id;
     std::optional<GLuint>                                   maybe_play_texture_id;

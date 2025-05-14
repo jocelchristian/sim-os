@@ -26,6 +26,9 @@ class [[nodiscard]] Parser final
     [[nodiscard]] auto tuple() -> std::optional<Expression>;
     [[nodiscard]] auto call_expression() -> std::optional<Expression>;
     [[nodiscard]] auto call_expression_arguments() -> std::optional<std::vector<ExpressionId>>;
+    [[nodiscard]] auto constant_definition() -> std::optional<Expression>;
+    [[nodiscard]] auto for_loop() -> std::optional<Expression>;
+    [[nodiscard]] auto range() -> std::optional<Expression>;
 
     [[nodiscard]] auto identifier() -> std::optional<Token>;
 

@@ -44,7 +44,25 @@ struct [[nodiscard]] Variable final
     Token name;
 };
 
-using ExpressionKind = std::variant<Call, StringLiteral, Number, List, Tuple, Variable>;
+struct [[nodiscard]] Constant final
+{
+    Token        name;
+    ExpressionId value;
+};
+
+struct [[nodiscard]] Range final
+{
+    Token start;
+    Token end;
+};
+
+struct [[nodiscard]] For final
+{
+    ExpressionId              range;
+    std::vector<ExpressionId> body;
+};
+
+using ExpressionKind = std::variant<Call, StringLiteral, Number, List, Tuple, Variable, Constant, Range, For>;
 
 struct [[nodiscard]] Expression final
 {
@@ -93,7 +111,7 @@ struct std::formatter<Interpreter::StatementKind>
     {
         static_assert(
           std::variant_size_v<Interpreter::StatementKind> == 1
-          && "Exhaustive handling of all variants for StatementKind is required."
+          && "exhaustive handling of all variants for statementkind is required."
         );
         const auto result = std::visit(
           [](const auto& value) -> std::string {
@@ -143,9 +161,8 @@ struct std::formatter<Interpreter::ExpressionKind>
             return ss.str();
         };
 
-
         static_assert(
-          std::variant_size_v<Interpreter::ExpressionKind> == 6,
+          std::variant_size_v<Interpreter::ExpressionKind> == 9,
           "Exhaustive handling of all variants for ExpressionKind is required."
         );
         const auto result = std::visit(
@@ -164,6 +181,12 @@ struct std::formatter<Interpreter::ExpressionKind>
                   return std::format("Tuple {{ elements = {} }}", join_expressions(value.elements));
               } else if constexpr (std::is_same_v<std::decay_t<decltype(value)>, Interpreter::Variable>) {
                   return std::format("Variable {{ name = {} }}", value.name.lexeme);
+              } else if constexpr (std::is_same_v<std::decay_t<decltype(value)>, Interpreter::Constant>) {
+                  return std::format("Constant {{ name = {}, value = {} }}", value.name.lexeme, value.value);
+              } else if constexpr (std::is_same_v<std::decay_t<decltype(value)>, Interpreter::Range>) {
+                  return std::format("Range {{ start = {}, end = {} }}", value.start.lexeme, value.end.lexeme);
+              } else if constexpr (std::is_same_v<std::decay_t<decltype(value)>, Interpreter::For>) {
+                  return std::format("For {{ range = {}, body = {} }}", value.range, join_expressions(value.body));
               } else {
                   static_assert(false, "Unhandled ExpressionKind variant alternative");
               }

@@ -16,6 +16,8 @@ enum class [[nodiscard]] TokenKind : std::uint8_t
     RightParen,
     LeftBracket,
     RightBracket,
+    LeftCurly,
+    RightCurly,
     Comma,
 
     // Multi character token
@@ -23,6 +25,8 @@ enum class [[nodiscard]] TokenKind : std::uint8_t
     Identifier,
     StringLiteral,
     Number,
+    ColonColon,
+    DotDot,
 
     Count,
 };
@@ -31,8 +35,7 @@ struct [[nodiscard]] Token final
 {
     [[nodiscard]] constexpr static auto is_keyword(const std::string_view lexeme) -> bool
     {
-        // TODO: This will get populated
-        constexpr static std::string_view keywords[] = { "" };
+        constexpr static std::string_view keywords[] = { "for" };
         return std::ranges::contains(keywords, lexeme);
     }
 
@@ -51,7 +54,7 @@ struct std::formatter<Interpreter::TokenKind>
     {
         const auto kind_to_str = [](Interpreter::TokenKind kind) {
             static_assert(
-              std::to_underlying(Interpreter::TokenKind::Count) == 9
+              std::to_underlying(Interpreter::TokenKind::Count) == 13
               && "Exhaustive handling of all enum variants for Interpreter::TokenKind is required."
             );
             switch (kind) {
@@ -81,6 +84,18 @@ struct std::formatter<Interpreter::TokenKind>
                 }
                 case Interpreter::TokenKind::Comma: {
                     return "TokenKind::Comma";
+                }
+                case Interpreter::TokenKind::ColonColon: {
+                    return "TokenKind::ColonColon";
+                }
+                case Interpreter::TokenKind::LeftCurly: {
+                    return "TokenKind::LeftCurly";
+                }
+                case Interpreter::TokenKind::RightCurly: {
+                    return "TokenKind::RightCurly";
+                }
+                case Interpreter::TokenKind::DotDot: {
+                    return "TokenKind::DotDot";
                 }
                 default: {
                     assert(false && "unreachable");

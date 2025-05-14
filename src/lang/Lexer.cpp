@@ -6,7 +6,7 @@
   -> std::optional<Interpreter::TokenKind>
 {
     static_assert(
-      std::to_underlying(Interpreter::TokenKind::Count) == 9,
+      std::to_underlying(Interpreter::TokenKind::Count) == 13,
       "Exhastive handling of all enum variants for TokenKind is required."
     );
 
@@ -22,6 +22,10 @@
             return Interpreter::TokenKind::RightBracket;
         case ',':
             return Interpreter::TokenKind::Comma;
+        case '{':
+            return Interpreter::TokenKind::LeftCurly;
+        case '}':
+            return Interpreter::TokenKind::RightCurly;
         default: {
             std::println(stderr, "[ERROR] Unexpected single character token {}", character[0]);
             return std::nullopt;
@@ -125,6 +129,41 @@ auto Lexer::number() -> std::optional<Token>
                    .span   = Span { .start = start_idx, .end = end_idx } };
 }
 
+auto Lexer::colon() -> std::optional<Token>
+{
+    assert((*peek())[0] == ':' && "expected \":\"");
+    const auto start_idx = cursor;
+    advance();
+
+    if (const auto peeked = peek(); peeked && (*peeked)[0] == ':') {
+        advance();
+        return Token { .lexeme = source.substr(start_idx, cursor - start_idx),
+                       .kind   = TokenKind::ColonColon,
+                       .span   = Span { .start = start_idx, .end = cursor } };
+    }
+
+    // FIXME: improve error handling
+    std::println(stderr, "[ERROR] (lexer): expected `::`");
+    return std::nullopt;
+}
+
+auto Lexer::dotdot() -> std::optional<Token>
+{
+    assert((*peek())[0] == '.' && "expected \".\"");
+    const auto start_idx = cursor;
+    advance();
+
+    if (const auto peeked = peek(); peeked && (*peeked)[0] == '.') {
+        advance();
+        return Token { .lexeme = source.substr(start_idx, cursor - start_idx),
+                       .kind   = TokenKind::DotDot,
+                       .span   = Span { .start = start_idx, .end = cursor } };
+    }
+
+    // FIXME: improve error handling
+    std::println(stderr, "[ERROR] (lexer): expected `..`");
+    return std::nullopt;
+}
 auto Lexer::has_more() const -> bool { return !(cursor >= source.size()); }
 
 auto Lexer::next_token() -> std::optional<Token>
@@ -140,9 +179,17 @@ auto Lexer::next_token() -> std::optional<Token>
         case '[':
         case ']':
         case ',':
+        case '{':
+        case '}':
         case '(':
         case ')': {
             return single_character_token(next_character);
+        }
+        case ':': {
+            return colon();
+        }
+        case '.': {
+            return dotdot();
         }
         case '"': {
             return string_literal();
