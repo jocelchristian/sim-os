@@ -6,11 +6,44 @@
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <implot.h>
 
 #include <stb_image.h>
 
 #include "gui/Gui.hpp"
 #include "simulations/Scheduler.hpp"
+
+class [[nodiscard]] ScrollingBuffer final
+{
+  public:
+    explicit ScrollingBuffer(int capacity = 2000)
+      : capacity { capacity }
+    {
+        data.reserve(capacity);
+    }
+
+    void emplace_point(const float x, const float y)
+    {
+        if (data.size() < capacity) {
+            data.push_back(ImVec2(x, y));
+            return;
+        }
+
+        data[cursor] = ImVec2(x, y);
+        cursor       = (cursor + 1) % capacity;
+    }
+
+    [[nodiscard]] auto operator[](const int index) const -> const ImVec2& { return data[index]; }
+
+    [[nodiscard]] auto size() const -> int { return data.size(); }
+
+    [[nodiscard]] auto offset() const -> int { return cursor; }
+
+  private:
+    int              capacity;
+    int              cursor = 0;
+    ImVector<ImVec2> data;
+};
 
 template<typename SchedulePolicy>
 class [[nodiscard]] SchedulerApp final
@@ -26,6 +59,8 @@ class [[nodiscard]] SchedulerApp final
     {
         const auto window = Gui::init_window("sim-os: scheduler", WINDOW_WIDTH, WINDOW_HEIGHT);
         if (!window) { return nullptr; }
+        ImPlot::CreateContext();
+
         return std::unique_ptr<SchedulerApp>(new SchedulerApp { *window, sim });
     }
 
@@ -58,23 +93,25 @@ class [[nodiscard]] SchedulerApp final
                   const auto available_screen_space = ImGui::GetContentRegionAvail();
                   const auto group_width            = (available_screen_space.x - spacing * 2) / 3.0F;
                   const auto group_height           = available_screen_space.y - 30.0F;
+                  const auto child_size             = ImVec2(group_width, (group_height / 2.0F) - 16.0F);
 
                   Gui::group([&] -> void {
-                      draw_process_queue("Ready", sim->ready, ImVec2(group_width, group_height));
+                      draw_process_queue("Ready", sim->ready, child_size);
+                      draw_process_queue("Arrival", sim->processes, child_size);
                   });
 
                   ImGui::SameLine();
 
                   Gui::group([&] -> void {
-                      draw_process_queue("Waiting", sim->waiting, ImVec2(group_width, (group_height / 2.0F) - 16.0F));
-                      draw_process_queue("Arrival", sim->processes, ImVec2(group_width, (group_height / 2.0F) - 16.0F));
+                      draw_process_queue("Waiting", sim->waiting, child_size);
+                      draw_graphs(child_size);
                   });
 
                   ImGui::SameLine();
 
                   Gui::group([&] -> void {
-                      draw_running_process(ImVec2(group_width, (group_height / 2.0F) - 16.0F));
-                      draw_statistics(ImVec2(group_width, (group_height / 2.0F) - 16.0F));
+                      draw_running_process(child_size);
+                      draw_statistics(child_size);
                   });
               }
             );
@@ -214,10 +251,13 @@ class [[nodiscard]] SchedulerApp final
 
     static void draw_events_table(const Os::Process::EventsQueue& events)
     {
+        constexpr static auto COLUMN_COUNT = 3;
+
         if (!events.empty()) {
-            if (ImGui::BeginTable("EventsTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            if (ImGui::BeginTable("EventsTable", COLUMN_COUNT, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
                 ImGui::TableSetupColumn("Event");
                 ImGui::TableSetupColumn("Duration");
+                ImGui::TableSetupColumn("Resource Usage");
                 ImGui::TableHeadersRow();
 
                 for (const auto& event : events) {
@@ -227,6 +267,9 @@ class [[nodiscard]] SchedulerApp final
 
                     ImGui::TableSetColumnIndex(1);
                     Gui::text("{}", event.duration);
+
+                    ImGui::TableSetColumnIndex(2);
+                    Gui::text("{}%", static_cast<std::size_t>(event.resource_usage * 100));
                 }
 
                 ImGui::EndTable();
@@ -234,9 +277,45 @@ class [[nodiscard]] SchedulerApp final
         }
     }
 
+    void draw_graphs(const ImVec2& child_size)
+    {
+        constexpr static auto HISTORY = 10.0F;
+
+        static float           t = 0.0F;
+        static ScrollingBuffer cpu_usage;
+
+        t += ImGui::GetIO().DeltaTime;
+        cpu_usage.emplace_point(t, static_cast<std::size_t>(sim->cpu_usage * 100));
+
+        Gui::title("Graphs", child_size, [&] -> void {
+            if (ImPlot::BeginPlot("##Scrolling", child_size)) {
+                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks, 0);
+                ImPlot::SetupAxisLimits(ImAxis_X1, t - HISTORY, t, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 100);
+                ImPlot::PushStyleColor(ImPlotCol_Line, ImPlot::GetColormapColor(1));
+                ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.5F);
+
+                ImPlot::PlotLine(
+                  "cpu usage %",
+                  &cpu_usage[0].x,
+                  &cpu_usage[0].y,
+                  cpu_usage.size(),
+                  0,
+                  cpu_usage.offset(),
+                  2 * sizeof(float)
+                );
+
+                ImPlot::PopStyleVar();
+                ImPlot::PopStyleColor();
+                ImPlot::EndPlot();
+            }
+        });
+    }
+
     ~SchedulerApp()
     {
         Gui::shutdown(window);
+        ImPlot::DestroyContext();
     }
 
     SchedulerApp(const SchedulerApp&)            = delete;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iterator>
 #include <memory>
 
 #include "os/Os.hpp"
@@ -27,7 +28,8 @@ struct [[nodiscard]] Scheduler final
     ProcessQueue   waiting;
     ProcessQueue   ready;
     SchedulePolicy schedule_policy;
-    std::size_t    timer = 0;
+    std::size_t    timer     = 0;
+    float          cpu_usage = 0;
 
     template<std::invocable<Scheduler&> Policy>
     explicit Scheduler(Policy policy)
@@ -50,6 +52,13 @@ struct [[nodiscard]] Scheduler final
             running = ready.front();
             ready.pop_front();
         }
+
+        if (running && !running->events.empty()) {
+            const auto& next_event = running->events.front();
+            cpu_usage = next_event.resource_usage;
+        }
+
+        if (complete()) { cpu_usage = 0.0F; };
 
         ++timer;
     }

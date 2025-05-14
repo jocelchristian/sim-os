@@ -224,7 +224,8 @@ class [[nodiscard]] Interpreter final
                 return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
             }
 
-            events.push_back(Os::Event { .kind = *maybe_event_kind, .duration = duration });
+            events.push_back(Os::Event {
+              .kind = *maybe_event_kind, .duration = duration, .resource_usage = std::max(0.01F, Util::random_float()) });
         }
 
         return events;
@@ -280,10 +281,8 @@ class [[nodiscard]] Interpreter final
         return Value();
     }
 
-    static auto report_function_call_mismatched_argc(
-      const std::string_view name,
-      const std::size_t      got
-    ) -> std::nullopt_t
+    static auto report_function_call_mismatched_argc(const std::string_view name, const std::size_t got)
+      -> std::nullopt_t
     {
         return report_error(
           "failed to interpret call to builtin `{}`: expected 4 arguments, {} were provided", name, got

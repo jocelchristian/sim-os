@@ -34,10 +34,23 @@ add_library(imgui
 target_include_directories(imgui PUBLIC ${imgui_external_SOURCE_DIR})
 target_link_libraries(imgui PUBLIC glfw)
 
+FetchContent_Declare(implot_external
+        URL https://github.com/epezent/implot/archive/refs/tags/v0.16.tar.gz
+	EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(implot_external)
+
+add_library(implot
+	${implot_external_SOURCE_DIR}/implot.cpp
+	${implot_external_SOURCE_DIR}/implot_items.cpp
+)
+target_include_directories(implot PUBLIC ${implot_external_SOURCE_DIR})
+target_link_libraries(implot PUBLIC imgui glfw)
+
 add_executable(
     scheduler
     src/gui/scheduler/scheduler_main.cpp
 )
 target_include_directories(scheduler PRIVATE "${CMAKE_SOURCE_DIR}/src/" "${CMAKE_SOURCE_DIR}/include")
-target_link_libraries(scheduler PRIVATE sim-lang glfw imgui GL)
+target_link_libraries(scheduler PRIVATE sim-lang GL glfw imgui implot)
 

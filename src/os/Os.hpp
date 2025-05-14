@@ -38,6 +38,7 @@ struct [[nodiscard]] Event final
 {
     EventKind   kind;
     std::size_t duration;
+    float       resource_usage;
 };
 
 struct [[nodiscard]] Process final
@@ -90,7 +91,13 @@ struct std::formatter<Os::Event>
 
     auto format(const Os::Event& event, auto& ctx) const
     {
-        return std::format_to(ctx.out(), "Event {{ kind = {}, duration = {} }}", event.kind, event.duration);
+        return std::format_to(
+          ctx.out(),
+          "Event {{ kind = {}, duration = {}, usage = {}% }}",
+          event.kind,
+          event.duration,
+          static_cast<std::size_t>(event.resource_usage * 100)
+        );
     }
 };
 

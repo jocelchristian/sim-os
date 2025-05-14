@@ -1,13 +1,15 @@
 #pragma once
 
 #include <algorithm>
+#include <random>
 #include <charconv>
-#include <print>
-#include <ranges>
 #include <filesystem>
-#include <optional>
-#include <sstream>
 #include <fstream>
+#include <optional>
+#include <print>
+#include <random>
+#include <ranges>
+#include <sstream>
 
 #if __clang__ || __GNUC__
 #define TRY(failable)                     \
@@ -67,32 +69,38 @@ namespace Util
         return std::nullopt;
     }
 
-    std::ifstream file(file_path);
+    std::ifstream     file(file_path);
     std::stringstream ss;
     ss << file.rdbuf();
     return ss.str();
 }
 
-template <typename... Lambdas>
+template<typename... Lambdas>
 struct [[nodiscard]] Visitor : public Lambdas...
 {
     using Lambdas::operator()...;
 };
 
-template <typename... Lambdas>
+template<typename... Lambdas>
 [[nodiscard]] constexpr static auto make_visitor(Lambdas... lambdas) -> Visitor<Lambdas...>
 {
     return Visitor { lambdas... };
 }
 
-template <typename Alternative>
-[[nodiscard]] auto get(const auto& variant) -> std::optional<Alternative>
+template<typename Alternative>
+[[nodiscard]] static auto get(const auto& variant) -> std::optional<Alternative>
 {
-    if (const auto* value = std::get_if<Alternative>(&variant)) {
-        return *value;
-    }
+    if (const auto* value = std::get_if<Alternative>(&variant)) { return *value; }
 
     return std::nullopt;
+}
+
+[[nodiscard]] static auto random_float() -> float
+{
+    std::random_device rd;
+    std::mt19937       gen(rd());
+    std::uniform_real_distribution<float> dis(0.0F, 1.0F);
+    return dis(gen);
 }
 
 } // namespace Util
