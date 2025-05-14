@@ -307,8 +307,10 @@ class [[nodiscard]] SchedulerApp final
         static float           t = 0.0F;
         static ScrollingBuffer cpu_usage;
 
-        t += ImGui::GetIO().DeltaTime;
-        cpu_usage.emplace_point(t, static_cast<std::size_t>(sim->cpu_usage * 100));
+        if (!sim->complete()) {
+            t += ImGui::GetIO().DeltaTime;
+            cpu_usage.emplace_point(t, static_cast<std::size_t>(sim->cpu_usage * 100));
+        }
 
         Gui::title("Graphs", child_size, [&] -> void {
             if (ImPlot::BeginPlot("##Scrolling", child_size)) {
