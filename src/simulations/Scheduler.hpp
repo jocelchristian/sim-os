@@ -36,6 +36,8 @@ struct [[nodiscard]] Scheduler final
     std::size_t max_single_event_duration = std::numeric_limits<std::size_t>::max();
     std::size_t max_arrival_time          = std::numeric_limits<std::size_t>::max();
 
+    std::vector<ProcessPtr> finished;
+
     template<std::invocable<Scheduler&> Policy>
     explicit Scheduler(Policy policy)
       : schedule_policy { policy }
@@ -74,11 +76,37 @@ struct [[nodiscard]] Scheduler final
         return processes.emplace_back(std::make_shared<Os::Process>(std::forward<Args>(args)...));
     }
 
+    [[nodiscard]] auto average_waiting_time() const -> std::size_t
+    {
+        if (finished.empty()) { return 0; }
+
+        std::size_t total_waiting_time = 0;
+        for (const auto& process : finished) {
+            if (!process->start_time.has_value()) { continue; }
+            total_waiting_time += process->start_time.value() - process->arrival;
+        }
+
+        return total_waiting_time / finished.size();
+    }
+
+    [[nodiscard]] auto average_turnaround_time() const -> std::size_t
+    {
+        if (finished.empty()) { return 0; }
+
+        std::size_t total_turnaround_time = 0;
+        for (const auto& process : finished) {
+            if (!process->finish_time.has_value()) { continue; }
+            total_turnaround_time += process->finish_time.value() - process->arrival;
+        }
+
+        return total_turnaround_time / finished.size();
+    }
+
   private:
     void sidetrack_processes()
     {
         for (auto it = processes.begin(); it != processes.end();) {
-            const auto process = *it;
+            auto process = *it;
             if (process->arrival != timer) {
                 ++it;
                 continue;
@@ -106,7 +134,7 @@ struct [[nodiscard]] Scheduler final
         }
     }
 
-    void dispatch_process_by_first_event(const ProcessPtr& process)
+    void dispatch_process_by_first_event(ProcessPtr& process)
     {
 
         static_assert(
@@ -117,6 +145,7 @@ struct [[nodiscard]] Scheduler final
         const auto first_event = process->events.front();
         switch (first_event.kind) {
             case Os::EventKind::Cpu: {
+                process->start_time = !process->start_time.has_value() ? std::optional { timer } : std::nullopt;
                 ready.push_back(process);
                 break;
             }
@@ -143,7 +172,12 @@ struct [[nodiscard]] Scheduler final
 
             if (current_event.duration == 0) {
                 process->events.pop_front();
-                if (!process->events.empty()) { dispatch_process_by_first_event(process); }
+                if (!process->events.empty()) {
+                    dispatch_process_by_first_event(process);
+                } else {
+                    process->finish_time = !process->finish_time.has_value() ? std::optional { timer } : std::nullopt;
+                    finished.push_back(process);
+                }
 
                 it = waiting.erase(it);
             } else {
@@ -166,7 +200,11 @@ struct [[nodiscard]] Scheduler final
 
         if (current_event.duration == 0) {
             process->events.pop_front();
-            if (!process->events.empty()) { dispatch_process_by_first_event(process); }
+            if (!process->events.empty()) {
+                dispatch_process_by_first_event(process);
+            } else {
+                finished.push_back(process);
+            }
 
             running = nullptr;
         }

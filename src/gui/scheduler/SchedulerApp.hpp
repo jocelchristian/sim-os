@@ -87,6 +87,8 @@ class [[nodiscard]] SchedulerApp final
             glfwPollEvents();
             if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0) { continue; }
 
+            if (!sim->complete()) { delta_time += ImGui::GetIO().DeltaTime; }
+
             Gui::new_frame();
 
             ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
@@ -111,7 +113,19 @@ class [[nodiscard]] SchedulerApp final
 
                   Gui::group([&] {
                       draw_process_queue("Waiting", sim->waiting, child_size);
-                      draw_graphs(child_size);
+
+                      const auto nested_group_width  = (child_size.x - spacing * 2) / 2.0F;
+                      const auto nested_group_height = child_size.y - 30.0F;
+                      const auto nested_child_size   = ImVec2(nested_group_width, (nested_group_height / 2.0F) - 16.0F);
+
+                      Gui::group([&] {
+                          draw_average_waiting_time_graph(nested_child_size);
+                          draw_average_turnaround_time_graph(nested_child_size);
+                      });
+
+                      ImGui::SameLine();
+
+                      Gui::group([&] { draw_cpu_usage_graph(nested_child_size); });
                   });
 
                   ImGui::SameLine();
@@ -144,11 +158,15 @@ class [[nodiscard]] SchedulerApp final
                           Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}", value); });
                       };
 
+                      draw_key_value("Timer", sim->timer);
                       draw_key_value("Scheduler Policy", SchedulePolicy::POLICY_NAME);
+
                       draw_key_value("Ready queue size", sim->ready.size());
                       draw_key_value("Waiting queue size", sim->waiting.size());
                       draw_key_value("Arrival size", sim->processes.size());
-                      draw_key_value("Timer", sim->timer);
+
+                      draw_key_value("Avg. waiting time", sim->average_waiting_time());
+                      draw_key_value("Avg. turnaround time", sim->average_turnaround_time());
                   });
               }
             );
@@ -263,33 +281,29 @@ class [[nodiscard]] SchedulerApp final
         }
     }
 
-    void draw_graphs(const ImVec2& child_size)
+    void draw_cpu_usage_graph(const ImVec2& child_size)
     {
         constexpr static auto HISTORY = 10.0F;
 
-        static float           t = 0.0F;
-        static ScrollingBuffer cpu_usage;
-
         if (!sim->complete()) {
-            t += ImGui::GetIO().DeltaTime;
-            cpu_usage.emplace_point(t, static_cast<std::size_t>(sim->cpu_usage * 100));
+            cpu_usage_buffer.emplace_point(delta_time, static_cast<std::size_t>(sim->cpu_usage * 100));
         }
 
-        Gui::title("Graphs", child_size, [&] {
-            if (ImPlot::BeginPlot("##Scrolling", child_size)) {
+        Gui::title("Cpu usage", child_size, [&] {
+            if (ImPlot::BeginPlot("##CpuUsagePlot", child_size)) {
                 ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks, 0);
-                ImPlot::SetupAxisLimits(ImAxis_X1, t - HISTORY, t, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_X1, delta_time - HISTORY, delta_time, ImGuiCond_Always);
                 ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 100);
                 ImPlot::PushStyleColor(ImPlotCol_Line, ImPlot::GetColormapColor(1));
                 ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.5F);
 
                 ImPlot::PlotLine(
                   "cpu usage %",
-                  &cpu_usage[0].x,
-                  &cpu_usage[0].y,
-                  cpu_usage.size(),
+                  &cpu_usage_buffer[0].x,
+                  &cpu_usage_buffer[0].y,
+                  cpu_usage_buffer.size(),
                   0,
-                  cpu_usage.offset(),
+                  cpu_usage_buffer.offset(),
                   2 * sizeof(float)
                 );
 
@@ -299,6 +313,73 @@ class [[nodiscard]] SchedulerApp final
             }
         });
     }
+
+    void draw_average_waiting_time_graph(const ImVec2& child_size)
+    {
+        constexpr static auto HISTORY = 10.0F;
+
+        const auto new_value = sim->average_waiting_time();
+        if (!sim->complete()) { average_waiting_time_buffer.emplace_point(delta_time, new_value); }
+
+        Gui::title("Waiting time", child_size, [&] {
+            max_waiting_time = std::max(max_waiting_time, new_value);
+            if (ImPlot::BeginPlot("##WaitingTimePlot", child_size)) {
+                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks, 0);
+                ImPlot::SetupAxisLimits(ImAxis_X1, delta_time - HISTORY, delta_time, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, 0, std::max(max_waiting_time, 1UL) + 5, ImGuiCond_Always);
+                ImPlot::PushStyleColor(ImPlotCol_Line, ImPlot::GetColormapColor(7));
+                ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.5F);
+
+                ImPlot::PlotLine(
+                  "waiting time",
+                  &average_waiting_time_buffer[0].x,
+                  &average_waiting_time_buffer[0].y,
+                  average_waiting_time_buffer.size(),
+                  0,
+                  average_waiting_time_buffer.offset(),
+                  2 * sizeof(float)
+                );
+
+                ImPlot::PopStyleVar();
+                ImPlot::PopStyleColor();
+                ImPlot::EndPlot();
+            }
+        });
+    }
+
+    void draw_average_turnaround_time_graph(const ImVec2& child_size)
+    {
+        constexpr static auto HISTORY = 10.0F;
+
+        const auto new_value = sim->average_turnaround_time();
+        if (!sim->complete()) { average_turnaround_time_buffer.emplace_point(delta_time, new_value); }
+
+        Gui::title("Turnaround time", child_size, [&] {
+            max_turnaround_time = std::max(max_turnaround_time, new_value);
+            if (ImPlot::BeginPlot("##TurnaroundTimePlot", child_size)) {
+                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks, 0);
+                ImPlot::SetupAxisLimits(ImAxis_X1, delta_time - HISTORY, delta_time, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, 0, std::max(max_turnaround_time, 1UL) + 5, ImGuiCond_Always);
+                ImPlot::PushStyleColor(ImPlotCol_Line, ImPlot::GetColormapColor(2));
+                ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.5F);
+
+                ImPlot::PlotLine(
+                  "turnaround time",
+                  &average_turnaround_time_buffer[0].x,
+                  &average_turnaround_time_buffer[0].y,
+                  average_turnaround_time_buffer.size(),
+                  0,
+                  average_turnaround_time_buffer.offset(),
+                  2 * sizeof(float)
+                );
+
+                ImPlot::PopStyleVar();
+                ImPlot::PopStyleColor();
+                ImPlot::EndPlot();
+            }
+        });
+    }
+
 
     ~SchedulerApp()
     {
@@ -333,4 +414,10 @@ class [[nodiscard]] SchedulerApp final
     std::optional<GLuint>                                   maybe_previous_texture_id;
     std::optional<GLuint>                                   maybe_play_texture_id;
     std::optional<GLuint>                                   maybe_next_texture_id;
+    float                                                   delta_time = 0.0F;
+    ScrollingBuffer                                         cpu_usage_buffer;
+    ScrollingBuffer                                         average_waiting_time_buffer;
+    std::size_t                                             max_waiting_time = 0;
+    ScrollingBuffer                                         average_turnaround_time_buffer;
+    std::size_t                                             max_turnaround_time = 0;
 };

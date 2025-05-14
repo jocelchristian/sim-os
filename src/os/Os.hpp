@@ -49,6 +49,9 @@ struct [[nodiscard]] Process final
     std::size_t      pid;
     std::size_t      arrival;
     EventsQueue      events;
+
+    std::optional<std::size_t> start_time;
+    std::optional<std::size_t> finish_time;
 };
 
 } // namespace Os
@@ -177,21 +180,26 @@ struct std::formatter<Os::Process>
             case LineMode::Multiline: {
                 return std::format_to(
                   ctx.out(),
-                  "Process {{\n        name: {},\n        pid: {},\n        arrival: {},\n        events: {}\n    }}",
+                  "Process {{\n        name: {},\n        pid: {},\n        arrival: {},\n        events: {}\n        "
+                  "waiting time: {}\n        turnaround time: {}\n    }}",
                   process.name,
                   process.pid,
                   process.arrival,
-                  process.events
+                  process.events,
+                  process.start_time.has_value() ? *process.start_time - process.arrival : 0,
+                  process.finish_time.has_value() ? *process.finish_time - process.arrival : 0
                 );
             }
             case LineMode::SingleLine: {
                 return std::format_to(
                   ctx.out(),
-                  "Process {{ name: {}, pid: {}, arrival: {}, events: {:s} }}",
+                  "Process {{ name: {}, pid: {}, arrival: {}, events: {:s}, waiting time: {}, turnaround time: {} }}",
                   process.name,
                   process.pid,
                   process.arrival,
-                  process.events
+                  process.events,
+                  process.start_time.has_value() ? *process.start_time - process.arrival : 0,
+                  process.finish_time.has_value() ? *process.finish_time - process.arrival : 0
                 );
             }
         }
