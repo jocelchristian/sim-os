@@ -264,7 +264,9 @@ template<std::invocable Callback>
 static void
   draw_table(const std::string& name, const std::span<const char* const> headers, TableFlags flags, Callback&& callback)
 {
-    if (ImGui::BeginTable(name.c_str(), static_cast<int>(headers.size()), static_cast<int>(std::to_underlying(flags)))) {
+    if (ImGui::BeginTable(
+          name.c_str(), static_cast<int>(headers.size()), static_cast<int>(std::to_underlying(flags))
+        )) {
         for (const auto& header : headers) { ImGui::TableSetupColumn(header); }
         ImGui::TableHeadersRow();
         std::invoke(std::forward<Callback>(callback));
@@ -380,7 +382,33 @@ struct [[nodiscard]] PlotOpts final
 template<std::invocable Callback>
 static void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Callback&& callback)
 {
-    if (ImPlot::BeginPlot(title.c_str(), size)) {
+    static std::unordered_map<std::string, bool> maximized_map;
+
+    const auto plot_size = maximized_map[title] ? ImGui::GetIO().DisplaySize : size;
+
+    if (maximized_map[title]) {
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
+
+        ImGui::Begin(
+          "MaximizedPlotWindow",
+          nullptr,
+          ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings
+            | ImGuiWindowFlags_NoCollapse
+        );
+
+        ImGui::PopStyleVar(2);
+    }
+
+    if (ImPlot::BeginPlot(title.c_str(), plot_size)) {
+        if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            maximized_map[title] = !maximized_map[title];
+            ImPlot::EndPlot();
+            return;
+        }
+
         ImPlot::SetupAxes(
           opts.x_label.has_value() ? opts.x_label->c_str() : nullptr,
           opts.y_label.has_value() ? opts.y_label->c_str() : nullptr,
@@ -400,6 +428,8 @@ static void plot(const std::string& title, const ImVec2& size, const PlotOpts& o
         if (opts.color) { ImPlot::PopStyleColor(); }
         ImPlot::EndPlot();
     }
+
+    if (maximized_map[title]) { ImGui::End(); }
 }
 
 enum class LineFlags : std::uint8_t

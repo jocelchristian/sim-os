@@ -9,15 +9,6 @@
 namespace Simulations
 {
 
-// clang-format off
-template<typename SimType>
-concept Simulation = requires(SimType sim)
-{
-    { sim.complete } -> std::same_as<bool>;
-    { sim.step };
-};
-// clang-format on
-
 template<typename SchedulePolicy>
 struct [[nodiscard]] Scheduler final
 {

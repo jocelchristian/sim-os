@@ -13,7 +13,6 @@
 #include "gui/Gui.hpp"
 #include "os/Os.hpp"
 #include "simulations/Scheduler.hpp"
-#include "Util.hpp"
 
 template<typename SchedulePolicy>
 class [[nodiscard]] SchedulerApp final
