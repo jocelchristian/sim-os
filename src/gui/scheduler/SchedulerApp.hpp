@@ -21,7 +21,7 @@ class [[nodiscard]] SchedulerApp final
   public:
     constexpr static auto WINDOW_WIDTH     = 1920;
     constexpr static auto WINDOW_HEIGHT    = 1080;
-    constexpr static auto BACKGROUND_COLOR = ImVec4(0.94, 0.94, 0.94, 1.0);
+    constexpr static auto BACKGROUND_COLOR = ImVec4(0.94F, 0.94F, 0.94F, 1.0F);
     constexpr static auto BUTTON_SIZE      = ImVec2(16, 16);
     constexpr static auto PLOT_HISTORY     = 10.0F;
 
@@ -240,7 +240,8 @@ class [[nodiscard]] SchedulerApp final
         constexpr static auto WINDOW_FLAGS = Gui::WindowFlags::AlwaysVerticalScrollbar;
 
         const auto cols = static_cast<std::size_t>(std::ceil(std::sqrt(sim->threads_count)));
-        const auto rows = static_cast<std::size_t>(std::ceil(static_cast<double>(sim->threads_count) / cols));
+        const auto rows =
+          static_cast<std::size_t>(std::ceil(static_cast<double>(sim->threads_count) / static_cast<double>(cols)));
         const auto nested_child_size = Gui::grid_layout_calc_size(rows, cols, child_size);
 
         std::size_t idx = 0;
@@ -319,7 +320,7 @@ class [[nodiscard]] SchedulerApp final
         };
 
         if (!sim->complete()) {
-            cpu_usage_buffer.emplace_point(delta_time, static_cast<std::size_t>(sim->average_cpu_usage() * 100));
+            cpu_usage_buffer.emplace_point(delta_time, static_cast<float>(sim->average_cpu_usage() * 100));
         }
 
         Gui::title("Cpu usage", child_size, [&](const auto& remaining_size) {
@@ -345,7 +346,7 @@ class [[nodiscard]] SchedulerApp final
         };
 
         const auto new_value = sim->throughput;
-        if (!sim->complete()) { throughput_buffer.emplace_point(delta_time, new_value); }
+        if (!sim->complete()) { throughput_buffer.emplace_point(delta_time, static_cast<float>(new_value)); }
 
         Gui::title("Throughput", child_size, [&](const auto& remaining_size) {
             max_throughput  = std::max(max_throughput, new_value);
@@ -391,11 +392,11 @@ class [[nodiscard]] SchedulerApp final
         };
 
         const auto new_value = sim->average_waiting_time();
-        if (!sim->complete()) { average_waiting_time_buffer.emplace_point(delta_time, new_value); }
+        if (!sim->complete()) { average_waiting_time_buffer.emplace_point(delta_time, static_cast<float>(new_value)); }
 
         Gui::title("Waiting time", child_size, [&](const auto& remaining_size) {
             max_waiting_time = std::max(max_waiting_time, new_value);
-            plot_opts.y_max  = std::max(max_waiting_time, 1UL) + 5;
+            plot_opts.y_max  = static_cast<double>(std::max(max_waiting_time, 1UL) + 5);
 
             Gui::Plotting::plot("##WaitingTimePlot", remaining_size, plot_opts, [&] {
                 Gui::Plotting::line("waiting time", average_waiting_time_buffer, Gui::Plotting::LineFlags::None);
@@ -419,11 +420,11 @@ class [[nodiscard]] SchedulerApp final
         };
 
         const auto new_value = sim->average_turnaround_time();
-        if (!sim->complete()) { average_turnaround_time_buffer.emplace_point(delta_time, new_value); }
+        if (!sim->complete()) { average_turnaround_time_buffer.emplace_point(delta_time, static_cast<float>(new_value)); }
 
         Gui::title("Turnaround time", child_size, [&](const auto& remaining_size) {
             max_turnaround_time = std::max(max_turnaround_time, new_value);
-            plot_opts.y_max     = std::max(max_turnaround_time, 1UL) + 5;
+            plot_opts.y_max     = static_cast<double>(std::max(max_turnaround_time, 1UL) + 5);
 
             Gui::Plotting::plot("##TurnaroundTimePlot", remaining_size, plot_opts, [&] {
                 Gui::Plotting::line("turnaround time", average_turnaround_time_buffer, Gui::Plotting::LineFlags::None);

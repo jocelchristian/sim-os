@@ -22,7 +22,6 @@
 #error "Unsupported compiler: TRY macro only supported for GCC and Clang"
 #endif
 
-
 namespace Util
 {
 

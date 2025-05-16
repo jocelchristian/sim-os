@@ -82,7 +82,7 @@ struct [[nodiscard]] Scheduler final
 
             if (complete()) { cpu_usage.fill(0.0F); };
 
-            throughput              = timer != 0 ? static_cast<double>(finished.size()) / timer : 0.0;
+            throughput              = timer != 0 ? static_cast<double>(finished.size()) / static_cast<double>(timer) : 0.0;
             previous_finished_count = finished.size();
         }
 
@@ -131,7 +131,7 @@ struct [[nodiscard]] Scheduler final
             total_usage += cpu_usage[thread_idx];
         }
 
-        return total_usage / threads_count;
+        return total_usage / static_cast<double>(threads_count);
     }
 
   private:
@@ -279,6 +279,7 @@ struct [[nodiscard]] RoundRobinPolicy
                 const auto new_event = Os::Event {
                     .kind     = Os::EventKind::Cpu,
                     .duration = quantum,
+                    .resource_usage = next_event.resource_usage,
                 };
                 events.push_front(new_event);
             }

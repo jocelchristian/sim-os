@@ -2,8 +2,18 @@
 
 #include <cassert>
 #include <cstring>
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+
 #include <deque>
-#include <iterator>
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include <memory>
 #include <print>
 #include <ranges>
@@ -414,9 +424,9 @@ class [[nodiscard]] Interpreter final
                | std::ranges::to<std::vector>();
     }
 
-    explicit Interpreter(const std::shared_ptr<Sim>& sim, Ast ast)
-      : sim { sim },
-        ast { std::move(ast) }
+    explicit Interpreter(const std::shared_ptr<Sim>& sim_, Ast ast_)
+      : sim { sim_ },
+        ast { std::move(ast_) }
     {}
 
     std::shared_ptr<Sim> sim;

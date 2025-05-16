@@ -3,8 +3,13 @@ project(sim-os)
 
 include(FetchContent)
 
-set(CXX_FLAGS "-std=c++2b -Wall -Wextra -Werror -Wshadow -Wconversion -Wpedantic -ggdb")
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STARNDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/src/")
@@ -51,7 +56,19 @@ add_executable(
     scheduler
     src/gui/scheduler/scheduler_main.cpp
 )
-target_include_directories(scheduler PRIVATE "${CMAKE_SOURCE_DIR}/src/" "${CMAKE_SOURCE_DIR}/include")
+target_include_directories(scheduler PRIVATE "${CMAKE_SOURCE_DIR}/src/")
+target_include_directories(scheduler SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/include")
 target_link_libraries(scheduler PRIVATE sim-lang GL glfw imgui implot)
 target_compile_definitions(scheduler PRIVATE $<$<CONFIG:Debug>:DEBUG>)
+target_compile_features(scheduler PRIVATE cxx_std_23)
+target_compile_options(scheduler
+    PRIVATE
+        -Wall
+        -Wextra
+        -Werror
+        -Wconversion
+        # -Wshadow
+        # -Wpedantic
+        $<$<CONFIG:Debug>: -ggdb -O2 -fno-omit-frame-pointer>
+        $<$<CONFIG:Release>: -O3>)
 

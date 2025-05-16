@@ -264,7 +264,7 @@ template<std::invocable Callback>
 static void
   draw_table(const std::string& name, const std::span<const char* const> headers, TableFlags flags, Callback&& callback)
 {
-    if (ImGui::BeginTable(name.c_str(), headers.size(), std::to_underlying(flags))) {
+    if (ImGui::BeginTable(name.c_str(), static_cast<int>(headers.size()), static_cast<int>(std::to_underlying(flags)))) {
         for (const auto& header : headers) { ImGui::TableSetupColumn(header); }
         ImGui::TableHeadersRow();
         std::invoke(std::forward<Callback>(callback));

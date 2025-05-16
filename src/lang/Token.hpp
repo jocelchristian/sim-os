@@ -52,12 +52,12 @@ struct std::formatter<Interpreter::TokenKind>
 
     auto format(Interpreter::TokenKind kind, auto& ctx) const
     {
-        const auto kind_to_str = [](Interpreter::TokenKind kind) {
+        const auto kind_to_str = [](Interpreter::TokenKind value) {
             static_assert(
               std::to_underlying(Interpreter::TokenKind::Count) == 13
               && "Exhaustive handling of all enum variants for Interpreter::TokenKind is required."
             );
-            switch (kind) {
+            switch (value) {
                 case Interpreter::TokenKind::LeftParen: {
                     return "TokenKind::LeftParen";
                 }

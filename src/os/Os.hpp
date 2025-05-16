@@ -64,13 +64,13 @@ struct std::formatter<Os::EventKind>
 
     auto format(Os::EventKind event, auto& ctx) const
     {
-        constexpr static auto visitor = [](Os::EventKind event) constexpr -> std::string {
+        constexpr static auto visitor = [](Os::EventKind value) constexpr -> std::string {
             static_assert(
               std::to_underlying(Os::EventKind::Count) == 2,
               "[ERROR] Exhaustive handling of all enum variants for EventKind is required"
             );
 
-            switch (event) {
+            switch (value) {
                 case Os::EventKind::Cpu: {
                     return "Cpu";
                 }
@@ -79,6 +79,7 @@ struct std::formatter<Os::EventKind>
                 }
                 default: {
                     assert(false && "unreachable");
+                    return "unreachable";
                 }
             }
         };
