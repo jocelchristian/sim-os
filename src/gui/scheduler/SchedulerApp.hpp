@@ -72,18 +72,14 @@ class [[nodiscard]] SchedulerApp final
                   const auto child_size = Gui::grid_layout_calc_size(2, 3);
 
                   Gui::group([&] {
-                      auto ready = std::views::join(sim->ready) | std::ranges::to<std::deque>();
-                      draw_process_queue("Ready", ready, child_size);
-
-                      auto arrival = std::views::join(sim->processes) | std::ranges::to<std::deque>();
-                      draw_process_queue("Arrival", arrival, child_size);
+                      draw_process_queue("Ready", std::views::join(sim->ready), child_size);
+                      draw_process_queue("Arrival", std::views::join(sim->processes), child_size);
                   });
 
                   ImGui::SameLine();
 
                   Gui::group([&] {
-                      auto waiting = std::views::join(sim->waiting) | std::ranges::to<std::deque>();
-                      draw_process_queue("Waiting", waiting, child_size);
+                      draw_process_queue("Waiting", std::views::join(sim->waiting), child_size);
                       draw_graphs(child_size);
                   });
 

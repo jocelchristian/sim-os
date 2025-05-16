@@ -52,6 +52,14 @@ struct [[nodiscard]] Scheduler final
       : schedule_policy { policy }
     {}
 
+    ~Scheduler() = default;
+
+    Scheduler(const Scheduler&) = delete;
+    Scheduler& operator=(const Scheduler&) = delete;
+
+    Scheduler(Scheduler&&) noexcept = default;
+    Scheduler& operator=(Scheduler&&) noexcept = default;
+
     [[nodiscard]] auto complete() const -> bool
     {
         const auto any_running   = std::ranges::any_of(running, [](const auto& process) { return process != nullptr; });
@@ -195,6 +203,8 @@ struct [[nodiscard]] Scheduler final
     void update_waiting_list(const std::size_t thread_idx)
     {
         auto& waits = waiting[thread_idx];
+        std::vector<ProcessPtr> to_dispatch;
+
         for (auto it = waits.begin(); it != waits.end();) {
             auto& process = *it;
             assert(!process->events.empty() && "event queue must not be empty");
@@ -207,7 +217,7 @@ struct [[nodiscard]] Scheduler final
             if (current_event.duration == 0) {
                 process->events.pop_front();
                 if (!process->events.empty()) {
-                    dispatch_process_by_first_event(thread_idx, process);
+                    to_dispatch.push_back(process);
                 } else {
                     process->finish_time = !process->finish_time.has_value() ? std::optional { timer } : std::nullopt;
                     finished.push_back(process);
@@ -217,6 +227,10 @@ struct [[nodiscard]] Scheduler final
             } else {
                 ++it;
             }
+        }
+
+        for (auto& process: to_dispatch) {
+            dispatch_process_by_first_event(thread_idx, process);
         }
     }
 

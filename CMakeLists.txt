@@ -69,6 +69,8 @@ target_compile_options(scheduler
         -Wconversion
         # -Wshadow
         # -Wpedantic
-        $<$<CONFIG:Debug>: -ggdb -O2 -fno-omit-frame-pointer>
+        -Wno-maybe-uninitialized
+        $<$<CONFIG:Debug>: -ggdb -O2 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
         $<$<CONFIG:Release>: -O3>)
+target_link_options(scheduler PRIVATE $<$<CONFIG:Debug>: -fsanitize=address>)
 

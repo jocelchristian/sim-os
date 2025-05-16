@@ -16,16 +16,16 @@ auto main(int argc, const char** argv) -> int
     const auto        maybe_script_content = Util::read_entire_file(script_path);
     if (!maybe_script_content) { return 1; }
 
-    const auto schedule_policy = Simulations::RoundRobinPolicy { .quantum = 5 };
+    using namespace Simulations;
+    const auto schedule_policy = RoundRobinPolicy { .quantum = 5 };
 
-    auto scheduler = Simulations::Scheduler<decltype(schedule_policy)>(schedule_policy);
-    auto sim       = std::make_shared<decltype(scheduler)>(scheduler);
+    auto sim = std::make_shared<Scheduler<RoundRobinPolicy>>(schedule_policy);
 
-    if (!Interpreter::Interpreter<decltype(scheduler)>::eval(*maybe_script_content, sim)) {
+    if (!Interpreter::Interpreter<Scheduler<RoundRobinPolicy>>::eval(*maybe_script_content, sim)) {
         std::println(stderr, "[ERROR] Could not correctly evaluate script {}", script_path);
     }
 
-    auto app = SchedulerApp<decltype(schedule_policy)>::create(sim);
+    auto app = SchedulerApp<RoundRobinPolicy>::create(sim);
     if (!app) { return 1; }
     app->render();
 }

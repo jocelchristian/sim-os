@@ -27,15 +27,35 @@
 namespace Interpreter
 {
 
+struct Value;
+
+// NOTE: This is a hack to shut up GCC about complaining when
+// using std::vector<Value> inside of a variant defined in Value
+struct [[nodiscard]] ValueList final
+{
+    std::vector<Value> values;
+
+    explicit ValueList(auto values_)
+      : values { std::move(values_) }
+    {}
+
+    ~ValueList() = default;
+
+    ValueList(const ValueList&) noexcept            = default;
+    ValueList(ValueList&&) noexcept                 = default;
+    ValueList& operator=(const ValueList&) noexcept = default;
+    ValueList& operator=(ValueList&&) noexcept      = default;
+};
+
 struct [[nodiscard]] Value final
 {
-    using ValueType = std::variant<std::string_view, std::size_t, std::vector<Value>, std::monostate>;
+    using ValueType = std::variant<std::monostate, std::string, std::size_t, ValueList>;
 
     Value()
       : value { std::monostate {} }
     {}
 
-    explicit Value(const std::string_view string)
+    explicit Value(const std::string& string)
       : value { string }
     {}
 
@@ -44,15 +64,12 @@ struct [[nodiscard]] Value final
     {}
 
     explicit Value(const std::vector<Value>& values)
-      : value { values }
+      : value { ValueList { values } }
     {}
 
-    [[nodiscard]] constexpr auto is_string() const -> bool { return std::holds_alternative<std::string_view>(value); }
+    [[nodiscard]] constexpr auto is_string() const -> bool { return std::holds_alternative<std::string>(value); }
 
-    [[nodiscard]] constexpr auto as_string() const -> std::string_view
-    {
-        return Util::get<std::string_view>(value).value();
-    }
+    [[nodiscard]] constexpr auto as_string() const -> std::string_view { return Util::get<std::string>(value).value(); }
 
     template<std::invocable Callback>
     [[nodiscard]] constexpr auto as_string_or(Callback callback) const -> std::optional<std::string_view>
@@ -70,14 +87,11 @@ struct [[nodiscard]] Value final
         return is_number() ? as_number() : callback();
     }
 
-    [[nodiscard]] constexpr auto is_value_list() const -> bool
-    {
-        return std::holds_alternative<std::vector<Value>>(value);
-    }
+    [[nodiscard]] constexpr auto is_value_list() const -> bool { return std::holds_alternative<ValueList>(value); }
 
     [[nodiscard]] constexpr auto as_value_list() const -> std::vector<Value>
     {
-        return Util::get<std::vector<Value>>(value).value();
+        return Util::get<ValueList>(value).value().values;
     }
 
     template<std::invocable Callback>
@@ -165,7 +179,7 @@ class [[nodiscard]] Interpreter final
         };
 
         const auto string_literal_visitor = [this](const StringLiteral& string_literal) -> std::optional<Value> {
-            return Value(string_literal.literal.lexeme);
+            return Value(std::string { string_literal.literal.lexeme });
         };
 
         const auto number_visitor = [this](const Number& number) -> std::optional<Value> {
@@ -197,7 +211,7 @@ class [[nodiscard]] Interpreter final
         };
 
         const auto variable_visitor = [this](const Variable& variable) -> std::optional<Value> {
-            return Value(variable.name.lexeme);
+            return Value(std::string { variable.name.lexeme });
         };
 
         const auto constant_visitor = [this](const Constant& constant) -> std::optional<Value> {
