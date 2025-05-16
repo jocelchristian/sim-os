@@ -57,7 +57,7 @@ class [[nodiscard]] SchedulerApp final
             glfwPollEvents();
             if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0) { continue; }
 
-            if (!sim->complete()) { delta_time += ImGui::GetIO().DeltaTime; }
+            if (!sim->complete() && stepped_this_frame) { delta_time += ImGui::GetIO().DeltaTime; }
 
             Gui::new_frame();
 
