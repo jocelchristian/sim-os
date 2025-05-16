@@ -11,7 +11,9 @@
 #include <stb_image.h>
 
 #include "gui/Gui.hpp"
+#include "os/Os.hpp"
 #include "simulations/Scheduler.hpp"
+#include "Util.hpp"
 
 template<typename SchedulePolicy>
 class [[nodiscard]] SchedulerApp final
@@ -67,17 +69,21 @@ class [[nodiscard]] SchedulerApp final
               [this] {
                   draw_control_buttons();
 
-                  const auto child_size = Gui::grid_layout_calc_size<2, 3>();
+                  const auto child_size = Gui::grid_layout_calc_size(2, 3);
 
                   Gui::group([&] {
-                      draw_process_queue("Ready", sim->ready, child_size);
-                      draw_process_queue("Arrival", sim->processes, child_size);
+                      auto ready = std::views::join(sim->ready) | std::ranges::to<std::deque>();
+                      draw_process_queue("Ready", ready, child_size);
+
+                      auto arrival = std::views::join(sim->processes) | std::ranges::to<std::deque>();
+                      draw_process_queue("Arrival", arrival, child_size);
                   });
 
                   ImGui::SameLine();
 
                   Gui::group([&] {
-                      draw_process_queue("Waiting", sim->waiting, child_size);
+                      auto waiting = std::views::join(sim->waiting) | std::ranges::to<std::deque>();
+                      draw_process_queue("Waiting", waiting, child_size);
                       draw_graphs(child_size);
                   });
 
@@ -112,13 +118,28 @@ class [[nodiscard]] SchedulerApp final
                     draw_key_value("Timer", sim->timer);
                     draw_key_value("Scheduler Policy", SchedulePolicy::POLICY_NAME);
 
-                    draw_key_value("Ready queue size", sim->ready.size());
-                    draw_key_value("Waiting queue size", sim->waiting.size());
-                    draw_key_value("Arrival size", sim->processes.size());
+                    const auto calculate_size = [](const auto& queues) -> std::size_t {
+                        return std::accumulate(queues.begin(), queues.end(), 0, [](const auto& acc, const auto& queue) {
+                            return acc + queue.size();
+                        });
+                    };
+
+                    draw_key_value("Ready queue size", calculate_size(sim->ready));
+                    draw_key_value("Waiting queue size", calculate_size(sim->waiting));
+                    draw_key_value("Arrival size", calculate_size(sim->processes));
+
+                    for (std::size_t thread_idx = 0; thread_idx < sim->threads_count; ++thread_idx) {
+                        draw_key_value(std::format("Cpu Core #{}", thread_idx), static_cast<std::size_t>(sim->cpu_usage[thread_idx] * 100));
+                    }
 
                     draw_key_value("Avg. waiting time", sim->average_waiting_time());
+                    draw_key_value("Max. waiting time", max_waiting_time);
                     draw_key_value("Avg. turnaround time", sim->average_turnaround_time());
-                    draw_key_value("Throughput", sim->throughput);
+                    draw_key_value("Max. turnaround time", max_turnaround_time);
+                    draw_key_value("Avg. throughput", sim->throughput);
+                    draw_key_value("Max. throughput", max_throughput);
+
+                    ImGui::Separator();
                 });
             });
         });
@@ -191,18 +212,40 @@ class [[nodiscard]] SchedulerApp final
         constexpr static auto CHILD_FLAGS  = Gui::ChildFlags::Border;
         constexpr static auto WINDOW_FLAGS = Gui::WindowFlags::AlwaysVerticalScrollbar;
 
-        Gui::title("Running", child_size, [&](const auto& remaining_size) {
-            Gui::child("###Scrollable Process", remaining_size, CHILD_FLAGS, WINDOW_FLAGS, [&] {
-                if (sim->running != nullptr) {
-                    const auto name = std::string { sim->running->name };
-                    Gui::collapsing(name, Gui::TreeNodeFlags::DefaultOpen, [&] {
-                        Gui::text("Pid: {}", sim->running->pid);
-                        Gui::text("Arrival Time: {}", sim->running->arrival);
-                        draw_events_table(sim->running->events);
+        const auto cols = static_cast<std::size_t>(std::ceil(std::sqrt(sim->threads_count)));
+        const auto rows = static_cast<std::size_t>(std::ceil(static_cast<double>(sim->threads_count) / cols));
+        const auto nested_child_size = Gui::grid_layout_calc_size(rows, cols, child_size);
+
+        std::size_t idx = 0;
+        for (std::size_t row = 0; row < rows; ++row) {
+            for (std::size_t col = 0; col < cols; ++col) {
+                const auto running = sim->running[idx];
+                const auto title   = std::format("CPU Core #{}", idx);
+
+                Gui::group([&] {
+                    Gui::title(title, nested_child_size, [&](const auto& remaining_size) {
+                        Gui::child(title, remaining_size, CHILD_FLAGS, WINDOW_FLAGS, [&] {
+                            if (running != nullptr) {
+                                const auto name = std::string { running->name };
+                                Gui::collapsing(
+                                  std::format("{} {}", name, running->pid),
+                                  Gui::TreeNodeFlags::DefaultOpen,
+                                  [&] {
+                                      Gui::text("Pid: {}", running->pid);
+                                      Gui::text("Arrival Time: {}", running->arrival);
+                                      draw_events_table(running->events);
+                                  }
+                                );
+                            }
+                        });
                     });
-                }
-            });
-        });
+                });
+
+                if (col < cols - 1 && idx + 1 < sim->threads_count) { ImGui::SameLine(); }
+
+                ++idx;
+            }
+        }
     }
 
     static void draw_process_queue(const std::string& title, const auto& processes, const ImVec2& child_size)
@@ -249,7 +292,7 @@ class [[nodiscard]] SchedulerApp final
         };
 
         if (!sim->complete()) {
-            cpu_usage_buffer.emplace_point(delta_time, static_cast<std::size_t>(sim->cpu_usage * 100));
+            cpu_usage_buffer.emplace_point(delta_time, static_cast<std::size_t>(sim->average_cpu_usage() * 100));
         }
 
         Gui::title("Cpu usage", child_size, [&](const auto& remaining_size) {
@@ -290,7 +333,7 @@ class [[nodiscard]] SchedulerApp final
 
     void draw_graphs(const ImVec2& child_size)
     {
-        const auto nested_child_size = Gui::grid_layout_calc_size<2, 2>(child_size);
+        const auto nested_child_size = Gui::grid_layout_calc_size(2, 2, child_size);
 
         Gui::group([&] {
             draw_average_waiting_time_graph(nested_child_size);

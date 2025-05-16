@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <limits>
 #include <memory>
 
@@ -20,21 +21,27 @@ concept Simulation = requires(SimType sim)
 template<typename SchedulePolicy>
 struct [[nodiscard]] Scheduler final
 {
+    constexpr static auto MAX_THREADS = 9;
+
     using ProcessPtr   = std::shared_ptr<Os::Process>;
     using ProcessQueue = std::deque<ProcessPtr>;
 
-    ProcessPtr     running;
-    ProcessQueue   processes;
-    ProcessQueue   waiting;
-    ProcessQueue   ready;
-    SchedulePolicy schedule_policy;
-    std::size_t    timer     = 0;
-    float          cpu_usage = 0;
+    std::array<ProcessPtr, MAX_THREADS>   running;
+    std::array<ProcessQueue, MAX_THREADS> processes;
+    std::array<ProcessQueue, MAX_THREADS> waiting;
+    std::array<ProcessQueue, MAX_THREADS> ready;
+
+    SchedulePolicy                 schedule_policy;
+    std::size_t                    timer     = 0;
+    std::array<float, MAX_THREADS> cpu_usage = {};
 
     std::size_t max_processes             = std::numeric_limits<std::size_t>::max();
     std::size_t max_events_per_process    = std::numeric_limits<std::size_t>::max();
     std::size_t max_single_event_duration = std::numeric_limits<std::size_t>::max();
     std::size_t max_arrival_time          = std::numeric_limits<std::size_t>::max();
+    std::size_t threads_count             = MAX_THREADS;
+
+    std::size_t next_thread = 0;
 
     double                  throughput              = 0;
     std::size_t             previous_finished_count = 0;
@@ -47,30 +54,37 @@ struct [[nodiscard]] Scheduler final
 
     [[nodiscard]] auto complete() const -> bool
     {
-        return !running && processes.empty() && waiting.empty() && ready.empty();
+        const auto any_running   = std::ranges::any_of(running, [](const auto& process) { return process != nullptr; });
+        const auto any_processes = std::ranges::any_of(processes, [](const auto& elem) { return !elem.empty(); });
+        const auto any_ready     = std::ranges::any_of(ready, [](const auto& elem) { return !elem.empty(); });
+        const auto any_waiting   = std::ranges::any_of(waiting, [](const auto& elem) { return !elem.empty(); });
+
+        return !any_running && !any_processes && !any_ready && !any_waiting;
     }
 
     void step()
     {
-        sidetrack_processes();
-        update_waiting_list();
-        update_running();
+        for (std::size_t thread_idx = 0; thread_idx < threads_count; ++thread_idx) {
+            sidetrack_processes(thread_idx);
+            update_waiting_list(thread_idx);
+            update_running(thread_idx);
 
-        if (!running) { schedule_policy(*this); }
-        if (!running && ready.size() > 0) {
-            running = ready.front();
-            ready.pop_front();
+            if (!running[thread_idx]) { schedule_policy(*this); }
+            if (!running[thread_idx] && ready[thread_idx].size() > 0) {
+                running[thread_idx] = ready[thread_idx].front();
+                ready[thread_idx].pop_front();
+            }
+
+            if (running[thread_idx] && !running[thread_idx]->events.empty()) {
+                const auto& next_event = running[thread_idx]->events.front();
+                cpu_usage[thread_idx]  = next_event.resource_usage;
+            }
+
+            if (complete()) { cpu_usage[thread_idx] = 0.0F; };
+
+            throughput              = timer != 0 ? static_cast<double>(finished.size()) / timer : 0.0;
+            previous_finished_count = finished.size();
         }
-
-        if (running && !running->events.empty()) {
-            const auto& next_event = running->events.front();
-            cpu_usage              = next_event.resource_usage;
-        }
-
-        if (complete()) { cpu_usage = 0.0F; };
-
-        throughput = timer != 0 ? (finished.size() - previous_finished_count) / static_cast<double>(timer) : 0.0;
-        previous_finished_count = finished.size();
 
         ++timer;
     }
@@ -78,7 +92,10 @@ struct [[nodiscard]] Scheduler final
     template<typename... Args>
     constexpr auto emplace_process(Args&&... args) -> ProcessPtr
     {
-        return processes.emplace_back(std::make_shared<Os::Process>(std::forward<Args>(args)...));
+        const auto ret =
+          processes[next_thread].emplace_back(std::make_shared<Os::Process>(std::forward<Args>(args)...));
+        next_thread = (next_thread + 1) % threads_count;
+        return ret;
     }
 
     [[nodiscard]] auto average_waiting_time() const -> std::size_t
@@ -107,17 +124,28 @@ struct [[nodiscard]] Scheduler final
         return total_turnaround_time / finished.size();
     }
 
-  private:
-    void sidetrack_processes()
+    [[nodiscard]] auto average_cpu_usage() const -> double
     {
-        for (auto it = processes.begin(); it != processes.end();) {
+        double total_usage = 0;
+        for (std::size_t thread_idx = 0; thread_idx < threads_count; ++thread_idx) {
+            total_usage += cpu_usage[thread_idx];
+        }
+
+        return total_usage / threads_count;
+    }
+
+  private:
+    void sidetrack_processes(const std::size_t thread_idx)
+    {
+        auto& procs = processes[thread_idx];
+        for (auto it = procs.begin(); it != procs.end();) {
             auto process = *it;
             if (process->arrival != timer) {
                 ++it;
                 continue;
             }
 
-            if (!ensure_pid_is_unique(process->pid)) {
+            if (!ensure_pid_is_unique(thread_idx, process->pid)) {
                 std::println(
                   stderr, "[ERROR] process {} with pid {} is already in use, skipping...", process->name, process->pid
                 );
@@ -134,12 +162,12 @@ struct [[nodiscard]] Scheduler final
                 continue;
             }
 
-            dispatch_process_by_first_event(process);
-            it = processes.erase(it);
+            dispatch_process_by_first_event(thread_idx, process);
+            it = procs.erase(it);
         }
     }
 
-    void dispatch_process_by_first_event(ProcessPtr& process)
+    void dispatch_process_by_first_event(const std::size_t thread_idx, ProcessPtr& process)
     {
 
         static_assert(
@@ -151,11 +179,11 @@ struct [[nodiscard]] Scheduler final
         switch (first_event.kind) {
             case Os::EventKind::Cpu: {
                 process->start_time = !process->start_time.has_value() ? std::optional { timer } : std::nullopt;
-                ready.push_back(process);
+                ready[thread_idx].push_back(process);
                 break;
             }
             case Os::EventKind::Io: {
-                waiting.push_back(process);
+                waiting[thread_idx].push_back(process);
                 break;
             }
             default: {
@@ -164,38 +192,39 @@ struct [[nodiscard]] Scheduler final
         }
     }
 
-    void update_waiting_list()
+    void update_waiting_list(const std::size_t thread_idx)
     {
-        for (auto it = waiting.begin(); it != waiting.end();) {
+        auto& waits = waiting[thread_idx];
+        for (auto it = waits.begin(); it != waits.end();) {
             auto& process = *it;
             assert(!process->events.empty() && "event queue must not be empty");
 
             auto& current_event = process->events.front();
-            assert(current_event.kind == Os::EventKind::Io && "process in waiting queue must be on an IO event");
+            assert(current_event.kind == Os::EventKind::Io && "process in waits queue must be on an IO event");
             assert(current_event.duration > 0);
             --current_event.duration;
 
             if (current_event.duration == 0) {
                 process->events.pop_front();
                 if (!process->events.empty()) {
-                    dispatch_process_by_first_event(process);
+                    dispatch_process_by_first_event(thread_idx, process);
                 } else {
                     process->finish_time = !process->finish_time.has_value() ? std::optional { timer } : std::nullopt;
                     finished.push_back(process);
                 }
 
-                it = waiting.erase(it);
+                it = waits.erase(it);
             } else {
                 ++it;
             }
         }
     }
 
-    void update_running()
+    void update_running(const std::size_t thread_idx)
     {
-        if (!running) { return; }
+        if (!running[thread_idx]) { return; }
 
-        auto& process = running;
+        auto& process = running[thread_idx];
         assert(!process->events.empty() && "event queue must not be empty");
 
         auto& current_event = process->events.front();
@@ -206,20 +235,21 @@ struct [[nodiscard]] Scheduler final
         if (current_event.duration == 0) {
             process->events.pop_front();
             if (!process->events.empty()) {
-                dispatch_process_by_first_event(process);
+                dispatch_process_by_first_event(thread_idx, process);
             } else {
                 finished.push_back(process);
             }
 
-            running = nullptr;
+            running[thread_idx] = nullptr;
         }
     }
 
-    [[nodiscard]] auto ensure_pid_is_unique(const std::size_t pid) const -> bool
+    [[nodiscard]] auto ensure_pid_is_unique(const std::size_t thread_idx, const std::size_t pid) const -> bool
     {
         const auto comparator = [&](const auto& elem) { return elem->pid == pid; };
-        return (!running || running->pid != pid) && std::ranges::find_if(ready, comparator) == ready.end()
-               && std::ranges::find_if(waiting, comparator) == waiting.end();
+        return (!running[thread_idx] || running[thread_idx]->pid != pid)
+               && std::ranges::find_if(ready[thread_idx], comparator) == ready[thread_idx].end()
+               && std::ranges::find_if(waiting[thread_idx], comparator) == waiting[thread_idx].end();
     }
 };
 
@@ -230,24 +260,28 @@ struct [[nodiscard]] RoundRobinPolicy
     template<typename T>
     void operator()(Scheduler<T>& sim) const
     {
-        if (sim.ready.empty()) { return; }
+        for (std::size_t thread_idx = 0; thread_idx < sim.threads_count; ++thread_idx) {
+            auto& ready = sim.ready[thread_idx];
 
-        const auto process = sim.ready.front();
-        sim.ready.pop_front();
-        sim.running = process;
+            if (ready.empty()) { return; }
 
-        auto& events = process->events;
-        assert(!events.empty() && "process queue must not be empty");
-        auto& next_event = events.front();
-        assert(next_event.kind == Os::EventKind::Cpu && "event of process in ready must be cpu");
+            const auto process = ready.front();
+            ready.pop_front();
+            sim.running[thread_idx] = process;
 
-        if (next_event.duration > quantum) {
-            next_event.duration -= quantum;
-            const auto new_event = Os::Event {
-                .kind     = Os::EventKind::Cpu,
-                .duration = quantum,
-            };
-            events.push_front(new_event);
+            auto& events = process->events;
+            assert(!events.empty() && "process queue must not be empty");
+            auto& next_event = events.front();
+            assert(next_event.kind == Os::EventKind::Cpu && "event of process in ready must be cpu");
+
+            if (next_event.duration > quantum) {
+                next_event.duration -= quantum;
+                const auto new_event = Os::Event {
+                    .kind     = Os::EventKind::Cpu,
+                    .duration = quantum,
+                };
+                events.push_front(new_event);
+            }
         }
     }
 

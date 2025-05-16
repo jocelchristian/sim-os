@@ -301,15 +301,17 @@ static void collapsing(const std::string& name, TreeNodeFlags flags, Callback&& 
     }
 }
 
-template<std::size_t Rows, std::size_t Cols>
-[[nodiscard]] static auto grid_layout_calc_size(const ImVec2& available_space = ImGui::GetContentRegionAvail())
-  -> ImVec2
+[[nodiscard]] static auto grid_layout_calc_size(
+  const std::size_t rows,
+  const std::size_t cols,
+  const ImVec2&     available_space = ImGui::GetContentRegionAvail()
+) -> ImVec2
 {
     const auto spacing = ImGui::GetStyle().ItemSpacing;
 
     return {
-        (available_space.x - (spacing.x * 2)) / Cols,
-        (available_space.y - (spacing.y * 2)) / Rows,
+        (available_space.x - (spacing.x * 2)) / static_cast<float>(cols),
+        (available_space.y - (spacing.y * 2)) / static_cast<float>(rows),
     };
 }
 

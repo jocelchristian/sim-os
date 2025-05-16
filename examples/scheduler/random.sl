@@ -1,3 +1,4 @@
+threads_count :: 6
 max_processes :: 100
 max_events_per_process :: 10
 max_single_event_duration :: 10

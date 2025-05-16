@@ -202,6 +202,8 @@ class [[nodiscard]] Interpreter final
                 sim->max_single_event_duration = TRY(Util::parse_number(number.number.lexeme));
             } else if (name == "max_arrival_time") {
                 sim->max_arrival_time = TRY(Util::parse_number(number.number.lexeme));
+            } else if (name == "threads_count") {
+                sim->threads_count = TRY(Util::parse_number(number.number.lexeme));
             } else {
                 report_error("invalid constant for current simulation: {}", name);
                 report_note(
