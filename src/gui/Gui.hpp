@@ -377,6 +377,8 @@ struct [[nodiscard]] PlotOpts final
     std::optional<std::string> y_label;
     std::optional<ImVec4>      color;
     std::optional<float>       line_weight;
+
+    bool can_scroll = false;
 };
 
 template<std::invocable Callback>
@@ -416,8 +418,8 @@ static void plot(const std::string& title, const ImVec2& size, const PlotOpts& o
           std::to_underlying(opts.y_axis_flags)
         );
 
-        ImPlot::SetupAxisLimits(ImAxis_X1, opts.x_min, opts.x_max, ImGuiCond_Always);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, opts.y_min, opts.y_max, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_X1, opts.x_min, opts.x_max, opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, opts.y_min, opts.y_max, opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always);
 
         if (opts.color) { ImPlot::PushStyleColor(ImPlotCol_Line, opts.color.value()); }
         if (opts.line_weight) { ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, opts.line_weight.value()); }

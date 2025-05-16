@@ -312,6 +312,7 @@ class [[nodiscard]] SchedulerApp final
             .y_label      = std::nullopt,
             .color        = ImPlot::GetColormapColor(1),
             .line_weight  = 2.5F,
+            .can_scroll   = sim->complete(),
         };
 
         if (!sim->complete()) {
@@ -338,6 +339,7 @@ class [[nodiscard]] SchedulerApp final
             .y_label      = std::nullopt,
             .color        = ImPlot::GetColormapColor(3),
             .line_weight  = 2.5F,
+            .can_scroll   = sim->complete(),
         };
 
         const auto new_value = sim->throughput;
@@ -384,6 +386,7 @@ class [[nodiscard]] SchedulerApp final
             .y_label      = std::nullopt,
             .color        = ImPlot::GetColormapColor(7),
             .line_weight  = 2.5F,
+            .can_scroll   = sim->complete(),
         };
 
         const auto new_value = sim->average_waiting_time();
@@ -412,10 +415,13 @@ class [[nodiscard]] SchedulerApp final
             .y_label      = std::nullopt,
             .color        = ImPlot::GetColormapColor(2),
             .line_weight  = 2.5F,
+            .can_scroll   = sim->complete(),
         };
 
         const auto new_value = sim->average_turnaround_time();
-        if (!sim->complete()) { average_turnaround_time_buffer.emplace_point(delta_time, static_cast<float>(new_value)); }
+        if (!sim->complete()) {
+            average_turnaround_time_buffer.emplace_point(delta_time, static_cast<float>(new_value));
+        }
 
         Gui::title("Turnaround time", child_size, [&](const auto& remaining_size) {
             max_turnaround_time = std::max(max_turnaround_time, new_value);
