@@ -80,7 +80,7 @@ struct [[nodiscard]] Scheduler final
                 cpu_usage[thread_idx]  = next_event.resource_usage;
             }
 
-            if (complete()) { cpu_usage[thread_idx] = 0.0F; };
+            if (complete()) { cpu_usage.fill(0.0F); };
 
             throughput              = timer != 0 ? static_cast<double>(finished.size()) / timer : 0.0;
             previous_finished_count = finished.size();
