@@ -102,21 +102,29 @@ class [[nodiscard]] SchedulerApp final
 
     void draw_statistics(const ImVec2& child_size) const
     {
-        constexpr static auto TABLE_NAME   = "StatsTable";
-        constexpr static auto HEADERS      = { "Key", "Value" };
         constexpr static auto CHILD_FLAGS  = Gui::ChildFlags::Border;
         constexpr static auto WINDOW_FLAGS = Gui::WindowFlags::AlwaysVerticalScrollbar;
         constexpr static auto TABLE_FLAGS  = Gui::TableFlags::Borders | Gui::TableFlags::RowBackground;
 
         Gui::title("Stats", child_size, [&](const auto& remaining_size) {
             Gui::child("Simulation Statistics", remaining_size, CHILD_FLAGS, WINDOW_FLAGS, [&] {
-                Gui::draw_table(TABLE_NAME, HEADERS, TABLE_FLAGS, [&] {
+                constexpr static auto INFO_TABLE_HEADERS = { "Key", "Value" };
+                Gui::draw_table("InfoTable", INFO_TABLE_HEADERS, TABLE_FLAGS, [&] {
                     const auto draw_key_value = [](const std::string_view key, const auto& value) {
                         Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}", value); });
                     };
 
                     draw_key_value("Timer", sim->timer);
                     draw_key_value("Scheduler Policy", SchedulePolicy::POLICY_NAME);
+                });
+
+                ImGui::Separator();
+
+                constexpr static auto QUEUES_TABLE_HEADERS = { "Queue", "Size" };
+                Gui::draw_table("QueuesTable", QUEUES_TABLE_HEADERS, TABLE_FLAGS, [&] {
+                    const auto draw_key_value = [](const std::string_view key, const auto& value) {
+                        Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}", value); });
+                    };
 
                     const auto calculate_size = [](const auto& queues) -> std::size_t {
                         return std::accumulate(queues.begin(), queues.end(), 0, [](const auto& acc, const auto& queue) {
@@ -127,10 +135,31 @@ class [[nodiscard]] SchedulerApp final
                     draw_key_value("Ready queue size", calculate_size(sim->ready));
                     draw_key_value("Waiting queue size", calculate_size(sim->waiting));
                     draw_key_value("Arrival size", calculate_size(sim->processes));
+                });
+
+                ImGui::Separator();
+
+                constexpr static auto CPU_CORES_TABLE_HEADERS = { "CPU", "Usage" };
+                Gui::draw_table("CpuCoresTable", CPU_CORES_TABLE_HEADERS, TABLE_FLAGS, [&] {
+                    const auto draw_key_value = [](const std::string_view key, const auto& value) {
+                        Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}%", value); });
+                    };
 
                     for (std::size_t thread_idx = 0; thread_idx < sim->threads_count; ++thread_idx) {
-                        draw_key_value(std::format("Cpu Core #{}", thread_idx), static_cast<std::size_t>(sim->cpu_usage[thread_idx] * 100));
+                        draw_key_value(
+                          std::format("Core #{}", thread_idx),
+                          static_cast<std::size_t>(sim->cpu_usage[thread_idx] * 100)
+                        );
                     }
+                });
+
+                ImGui::Separator();
+
+                constexpr static auto METRICS_TABLE_HEADERS = { "Key", "Value" };
+                Gui::draw_table("MetricsTable", METRICS_TABLE_HEADERS, TABLE_FLAGS, [&] {
+                    const auto draw_key_value = [](const std::string_view key, const auto& value) {
+                        Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}", value); });
+                    };
 
                     draw_key_value("Avg. waiting time", sim->average_waiting_time());
                     draw_key_value("Max. waiting time", max_waiting_time);
@@ -138,8 +167,6 @@ class [[nodiscard]] SchedulerApp final
                     draw_key_value("Max. turnaround time", max_turnaround_time);
                     draw_key_value("Avg. throughput", sim->throughput);
                     draw_key_value("Max. throughput", max_throughput);
-
-                    ImGui::Separator();
                 });
             });
         });
