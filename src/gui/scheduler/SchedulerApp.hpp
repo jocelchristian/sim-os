@@ -13,38 +13,6 @@
 #include "gui/Gui.hpp"
 #include "simulations/Scheduler.hpp"
 
-class [[nodiscard]] ScrollingBuffer final
-{
-  public:
-    explicit ScrollingBuffer(int capacity = 2000)
-      : capacity { capacity }
-    {
-        data.reserve(capacity);
-    }
-
-    void emplace_point(const float x, const float y)
-    {
-        if (data.size() < capacity) {
-            data.push_back(ImVec2(x, y));
-            return;
-        }
-
-        data[cursor] = ImVec2(x, y);
-        cursor       = (cursor + 1) % capacity;
-    }
-
-    [[nodiscard]] auto operator[](const int index) const -> const ImVec2& { return data[index]; }
-
-    [[nodiscard]] auto size() const -> int { return data.size(); }
-
-    [[nodiscard]] auto offset() const -> int { return cursor; }
-
-  private:
-    int              capacity;
-    int              cursor = 0;
-    ImVector<ImVec2> data;
-};
-
 template<typename SchedulePolicy>
 class [[nodiscard]] SchedulerApp final
 {
@@ -53,6 +21,7 @@ class [[nodiscard]] SchedulerApp final
     constexpr static auto WINDOW_HEIGHT    = 1080;
     constexpr static auto BACKGROUND_COLOR = ImVec4(0.94, 0.94, 0.94, 1.0);
     constexpr static auto BUTTON_SIZE      = ImVec2(16, 16);
+    constexpr static auto PLOT_HISTORY     = 10.0F;
 
   public:
     [[nodiscard]] static auto create(const auto& sim) -> std::unique_ptr<SchedulerApp>
@@ -98,11 +67,7 @@ class [[nodiscard]] SchedulerApp final
               [this] {
                   draw_control_buttons();
 
-                  const auto spacing                = ImGui::GetStyle().ItemSpacing.x;
-                  const auto available_screen_space = ImGui::GetContentRegionAvail();
-                  const auto group_width            = (available_screen_space.x - spacing * 2) / 3.0F;
-                  const auto group_height           = available_screen_space.y - 30.0F;
-                  const auto child_size             = ImVec2(group_width, (group_height / 2.0F) - 16.0F);
+                  const auto child_size = Gui::grid_layout_calc_size<2, 3>();
 
                   Gui::group([&] {
                       draw_process_queue("Ready", sim->ready, child_size);
@@ -113,19 +78,7 @@ class [[nodiscard]] SchedulerApp final
 
                   Gui::group([&] {
                       draw_process_queue("Waiting", sim->waiting, child_size);
-
-                      const auto nested_group_width  = (child_size.x - spacing * 2) / 2.0F;
-                      const auto nested_group_height = child_size.y - 30.0F;
-                      const auto nested_child_size   = ImVec2(nested_group_width, (nested_group_height / 2.0F) - 16.0F);
-
-                      Gui::group([&] {
-                          draw_average_waiting_time_graph(nested_child_size);
-                          draw_average_turnaround_time_graph(nested_child_size);
-                      });
-
-                      ImGui::SameLine();
-
-                      Gui::group([&] { draw_cpu_usage_graph(nested_child_size); });
+                      draw_graphs(child_size);
                   });
 
                   ImGui::SameLine();
@@ -141,42 +94,39 @@ class [[nodiscard]] SchedulerApp final
         }
     }
 
-    void draw_statistics(const ImVec2& child_size)
+    void draw_statistics(const ImVec2& child_size) const
     {
-        constexpr static auto TABLE_NAME = "StatsTable";
-        constexpr static auto HEADERS    = { "Key", "Value" };
+        constexpr static auto TABLE_NAME   = "StatsTable";
+        constexpr static auto HEADERS      = { "Key", "Value" };
+        constexpr static auto CHILD_FLAGS  = Gui::ChildFlags::Border;
+        constexpr static auto WINDOW_FLAGS = Gui::WindowFlags::AlwaysVerticalScrollbar;
+        constexpr static auto TABLE_FLAGS  = Gui::TableFlags::Borders | Gui::TableFlags::RowBackground;
 
-        Gui::title("Stats", child_size, [&] {
-            Gui::child(
-              "Simulation Statistics",
-              child_size,
-              Gui::ChildFlags::Border,
-              Gui::WindowFlags::AlwaysVerticalScrollbar,
-              [&] {
-                  Gui::draw_table(TABLE_NAME, HEADERS, Gui::TableFlags::Borders | Gui::TableFlags::RowBackground, [&] {
-                      const auto draw_key_value = [](const std::string_view key, const auto& value) {
-                          Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}", value); });
-                      };
+        Gui::title("Stats", child_size, [&](const auto& remaining_size) {
+            Gui::child("Simulation Statistics", remaining_size, CHILD_FLAGS, WINDOW_FLAGS, [&] {
+                Gui::draw_table(TABLE_NAME, HEADERS, TABLE_FLAGS, [&] {
+                    const auto draw_key_value = [](const std::string_view key, const auto& value) {
+                        Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}", value); });
+                    };
 
-                      draw_key_value("Timer", sim->timer);
-                      draw_key_value("Scheduler Policy", SchedulePolicy::POLICY_NAME);
+                    draw_key_value("Timer", sim->timer);
+                    draw_key_value("Scheduler Policy", SchedulePolicy::POLICY_NAME);
 
-                      draw_key_value("Ready queue size", sim->ready.size());
-                      draw_key_value("Waiting queue size", sim->waiting.size());
-                      draw_key_value("Arrival size", sim->processes.size());
+                    draw_key_value("Ready queue size", sim->ready.size());
+                    draw_key_value("Waiting queue size", sim->waiting.size());
+                    draw_key_value("Arrival size", sim->processes.size());
 
-                      draw_key_value("Avg. waiting time", sim->average_waiting_time());
-                      draw_key_value("Avg. turnaround time", sim->average_turnaround_time());
-                  });
-              }
-            );
+                    draw_key_value("Avg. waiting time", sim->average_waiting_time());
+                    draw_key_value("Avg. turnaround time", sim->average_turnaround_time());
+                });
+            });
         });
     }
 
     void draw_control_buttons()
     {
-        constexpr static auto buttons_count = 2;
-        Gui::center_content_horizontally(BUTTON_SIZE.x * buttons_count);
+        constexpr static auto BUTTONS_COUNT = 2;
+        Gui::center_content_horizontally(BUTTON_SIZE.x * BUTTONS_COUNT);
 
         // If icons could not be loaded fallback
         if (!maybe_previous_texture_id || !maybe_next_texture_id) {
@@ -220,7 +170,10 @@ class [[nodiscard]] SchedulerApp final
     {
         if (process == nullptr) { return; }
 
-        Gui::child("###Scrollable Process", Gui::ChildFlags::Border, Gui::WindowFlags::AlwaysVerticalScrollbar, [&] {
+        constexpr static auto CHILD_FLAGS  = Gui::ChildFlags::Border;
+        constexpr static auto WINDOW_FLAGS = Gui::WindowFlags::AlwaysVerticalScrollbar;
+
+        Gui::child("###Scrollable Process", CHILD_FLAGS, WINDOW_FLAGS, [&] {
             auto header_title = std::format("{} #{}", process->name, process->pid);
             if (process->name != "Process") { header_title = std::string { process->name }; }
 
@@ -232,151 +185,146 @@ class [[nodiscard]] SchedulerApp final
         });
     }
 
-    void draw_running_process(const ImVec2& child_size)
+    void draw_running_process(const ImVec2& child_size) const
     {
-        Gui::title("Running", child_size, [&] {
-            Gui::child(
-              "###Scrollable Process",
-              child_size,
-              Gui::ChildFlags::Border,
-              Gui::WindowFlags::AlwaysVerticalScrollbar,
-              [&] {
-                  if (sim->running != nullptr) {
-                      const auto name = std::string { sim->running->name };
-                      Gui::collapsing(name, Gui::TreeNodeFlags::DefaultOpen, [&] {
-                          Gui::text("Pid: {}", sim->running->pid);
-                          Gui::text("Arrival Time: {}", sim->running->arrival);
-                          draw_events_table(sim->running->events);
-                      });
-                  }
-              }
-            );
+        constexpr static auto CHILD_FLAGS  = Gui::ChildFlags::Border;
+        constexpr static auto WINDOW_FLAGS = Gui::WindowFlags::AlwaysVerticalScrollbar;
+
+        Gui::title("Running", child_size, [&](const auto& remaining_size) {
+            Gui::child("###Scrollable Process", remaining_size, CHILD_FLAGS, WINDOW_FLAGS, [&] {
+                if (sim->running != nullptr) {
+                    const auto name = std::string { sim->running->name };
+                    Gui::collapsing(name, Gui::TreeNodeFlags::DefaultOpen, [&] {
+                        Gui::text("Pid: {}", sim->running->pid);
+                        Gui::text("Arrival Time: {}", sim->running->arrival);
+                        draw_events_table(sim->running->events);
+                    });
+                }
+            });
         });
     }
 
     static void draw_process_queue(const std::string& title, const auto& processes, const ImVec2& child_size)
     {
-        Gui::title(title, child_size, [&] {
-            Gui::child(title, child_size, Gui::ChildFlags::Border, Gui::WindowFlags::AlwaysVerticalScrollbar, [&] {
-                for (const auto& process : processes) { draw_process(process); }
+        Gui::title(title, child_size, [&](const auto& remaining_size) {
+            Gui::child(title, remaining_size, Gui::ChildFlags::Border, Gui::WindowFlags::AlwaysVerticalScrollbar, [&] {
+                std::ranges::for_each(processes, [](const auto& process) { draw_process(process); });
             });
         });
     }
 
     static void draw_events_table(const Os::Process::EventsQueue& events)
     {
-        constexpr static auto TABLE_NAME = "EventsTable";
-        constexpr static auto HEADERS    = { "Event", "Duration", "Resource Usage" };
+        constexpr static auto TABLE_NAME  = "##EventsTable";
+        constexpr static auto HEADERS     = { "Event", "Duration", "Resource Usage" };
+        constexpr static auto TABLE_FLAGS = Gui::TableFlags::Borders | Gui::TableFlags::RowBackground;
 
         if (!events.empty()) {
-            Gui::draw_table(TABLE_NAME, HEADERS, Gui::TableFlags::Borders | Gui::TableFlags::RowBackground, [&] {
-                for (const auto& event : events) {
+            Gui::draw_table(TABLE_NAME, HEADERS, TABLE_FLAGS, [&] {
+                std::ranges::for_each(events, [](const auto& event) {
                     Gui::draw_table_row(
                       [&] { Gui::text("{}", event.kind); },
                       [&] { Gui::text("{}", event.duration); },
                       [&] { Gui::text("{}%", std::lround(event.resource_usage * 100)); }
                     );
-                }
+                });
             });
         }
     }
 
     void draw_cpu_usage_graph(const ImVec2& child_size)
     {
-        constexpr static auto HISTORY = 10.0F;
+        const auto plot_opts = Gui::Plotting::PlotOpts {
+            .x_axis_flags = Gui::Plotting::AxisFlags::NoTickLabels | Gui::Plotting::AxisFlags::NoTickMarks,
+            .y_axis_flags = Gui::Plotting::AxisFlags::None,
+            .x_min        = delta_time - PLOT_HISTORY,
+            .x_max        = delta_time,
+            .y_min        = 0,
+            .y_max        = 100,
+            .x_label      = std::nullopt,
+            .y_label      = std::nullopt,
+            .color        = ImPlot::GetColormapColor(1),
+            .line_weight  = 2.5F,
+        };
 
         if (!sim->complete()) {
             cpu_usage_buffer.emplace_point(delta_time, static_cast<std::size_t>(sim->cpu_usage * 100));
         }
 
-        Gui::title("Cpu usage", child_size, [&] {
-            if (ImPlot::BeginPlot("##CpuUsagePlot", child_size)) {
-                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks, 0);
-                ImPlot::SetupAxisLimits(ImAxis_X1, delta_time - HISTORY, delta_time, ImGuiCond_Always);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 100);
-                ImPlot::PushStyleColor(ImPlotCol_Line, ImPlot::GetColormapColor(1));
-                ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.5F);
-
-                ImPlot::PlotLine(
-                  "cpu usage %",
-                  &cpu_usage_buffer[0].x,
-                  &cpu_usage_buffer[0].y,
-                  cpu_usage_buffer.size(),
-                  0,
-                  cpu_usage_buffer.offset(),
-                  2 * sizeof(float)
-                );
-
-                ImPlot::PopStyleVar();
-                ImPlot::PopStyleColor();
-                ImPlot::EndPlot();
-            }
+        Gui::title("Cpu usage", child_size, [&](const auto& remaining_size) {
+            Gui::Plotting::plot("##CpuUsagePlot", remaining_size, plot_opts, [&] {
+                Gui::Plotting::line("cpu usage %", cpu_usage_buffer, Gui::Plotting::LineFlags::None);
+            });
         });
+    }
+
+    void draw_graphs(const ImVec2& child_size)
+    {
+        const auto nested_child_size = Gui::grid_layout_calc_size<2, 2>(child_size);
+
+        Gui::group([&] {
+            draw_average_waiting_time_graph(nested_child_size);
+            draw_average_turnaround_time_graph(nested_child_size);
+        });
+
+        ImGui::SameLine();
+
+        Gui::group([&] { draw_cpu_usage_graph(nested_child_size); });
     }
 
     void draw_average_waiting_time_graph(const ImVec2& child_size)
     {
-        constexpr static auto HISTORY = 10.0F;
+        auto plot_opts = Gui::Plotting::PlotOpts {
+            .x_axis_flags = Gui::Plotting::AxisFlags::NoTickLabels | Gui::Plotting::AxisFlags::NoTickMarks,
+            .y_axis_flags = Gui::Plotting::AxisFlags::None,
+            .x_min        = delta_time - PLOT_HISTORY,
+            .x_max        = delta_time,
+            .y_min        = 0,
+            .y_max        = static_cast<double>(max_waiting_time),
+            .x_label      = std::nullopt,
+            .y_label      = std::nullopt,
+            .color        = ImPlot::GetColormapColor(7),
+            .line_weight  = 2.5F,
+        };
 
         const auto new_value = sim->average_waiting_time();
         if (!sim->complete()) { average_waiting_time_buffer.emplace_point(delta_time, new_value); }
 
-        Gui::title("Waiting time", child_size, [&] {
+        Gui::title("Waiting time", child_size, [&](const auto& remaining_size) {
             max_waiting_time = std::max(max_waiting_time, new_value);
-            if (ImPlot::BeginPlot("##WaitingTimePlot", child_size)) {
-                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks, 0);
-                ImPlot::SetupAxisLimits(ImAxis_X1, delta_time - HISTORY, delta_time, ImGuiCond_Always);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, 0, std::max(max_waiting_time, 1UL) + 5, ImGuiCond_Always);
-                ImPlot::PushStyleColor(ImPlotCol_Line, ImPlot::GetColormapColor(7));
-                ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.5F);
+            plot_opts.y_max  = std::max(max_waiting_time, 1UL) + 5;
 
-                ImPlot::PlotLine(
-                  "waiting time",
-                  &average_waiting_time_buffer[0].x,
-                  &average_waiting_time_buffer[0].y,
-                  average_waiting_time_buffer.size(),
-                  0,
-                  average_waiting_time_buffer.offset(),
-                  2 * sizeof(float)
-                );
-
-                ImPlot::PopStyleVar();
-                ImPlot::PopStyleColor();
-                ImPlot::EndPlot();
-            }
+            Gui::Plotting::plot("##WaitingTimePlot", remaining_size, plot_opts, [&] {
+                Gui::Plotting::line("waiting time", average_waiting_time_buffer, Gui::Plotting::LineFlags::None);
+            });
         });
     }
 
     void draw_average_turnaround_time_graph(const ImVec2& child_size)
     {
-        constexpr static auto HISTORY = 10.0F;
+        auto plot_opts = Gui::Plotting::PlotOpts {
+            .x_axis_flags = Gui::Plotting::AxisFlags::NoTickLabels | Gui::Plotting::AxisFlags::NoTickMarks,
+            .y_axis_flags = Gui::Plotting::AxisFlags::None,
+            .x_min        = delta_time - PLOT_HISTORY,
+            .x_max        = delta_time,
+            .y_min        = 0,
+            .y_max        = static_cast<double>(max_turnaround_time),
+            .x_label      = std::nullopt,
+            .y_label      = std::nullopt,
+            .color        = ImPlot::GetColormapColor(2),
+            .line_weight  = 2.5F,
+        };
 
         const auto new_value = sim->average_turnaround_time();
         if (!sim->complete()) { average_turnaround_time_buffer.emplace_point(delta_time, new_value); }
 
-        Gui::title("Turnaround time", child_size, [&] {
+        Gui::title("Turnaround time", child_size, [&](const auto& remaining_size) {
             max_turnaround_time = std::max(max_turnaround_time, new_value);
-            if (ImPlot::BeginPlot("##TurnaroundTimePlot", child_size)) {
-                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks, 0);
-                ImPlot::SetupAxisLimits(ImAxis_X1, delta_time - HISTORY, delta_time, ImGuiCond_Always);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, 0, std::max(max_turnaround_time, 1UL) + 5, ImGuiCond_Always);
-                ImPlot::PushStyleColor(ImPlotCol_Line, ImPlot::GetColormapColor(2));
-                ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 2.5F);
+            plot_opts.y_max     = std::max(max_turnaround_time, 1UL) + 5;
 
-                ImPlot::PlotLine(
-                  "turnaround time",
-                  &average_turnaround_time_buffer[0].x,
-                  &average_turnaround_time_buffer[0].y,
-                  average_turnaround_time_buffer.size(),
-                  0,
-                  average_turnaround_time_buffer.offset(),
-                  2 * sizeof(float)
-                );
-
-                ImPlot::PopStyleVar();
-                ImPlot::PopStyleColor();
-                ImPlot::EndPlot();
-            }
+            Gui::Plotting::plot("##TurnaroundTimePlot", remaining_size, plot_opts, [&] {
+                Gui::Plotting::line("turnaround time", average_turnaround_time_buffer, Gui::Plotting::LineFlags::None);
+            });
         });
     }
 
@@ -415,9 +363,9 @@ class [[nodiscard]] SchedulerApp final
     std::optional<GLuint>                                   maybe_play_texture_id;
     std::optional<GLuint>                                   maybe_next_texture_id;
     float                                                   delta_time = 0.0F;
-    ScrollingBuffer                                         cpu_usage_buffer;
-    ScrollingBuffer                                         average_waiting_time_buffer;
+    Gui::Plotting::RingBuffer                               cpu_usage_buffer;
+    Gui::Plotting::RingBuffer                               average_waiting_time_buffer;
     std::size_t                                             max_waiting_time = 0;
-    ScrollingBuffer                                         average_turnaround_time_buffer;
+    Gui::Plotting::RingBuffer                               average_turnaround_time_buffer;
     std::size_t                                             max_turnaround_time = 0;
 };

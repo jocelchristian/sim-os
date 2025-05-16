@@ -12,6 +12,7 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <implot.h>
 #include <string>
 #include <utility>
 
@@ -34,7 +35,7 @@ enum class ChildFlags : std::uint8_t
     Border = 1 << 0,
 };
 
-[[nodiscard]] static auto operator|(ChildFlags lhs, ChildFlags rhs) -> ChildFlags
+[[nodiscard]] constexpr static auto operator|(ChildFlags lhs, ChildFlags rhs) -> ChildFlags
 {
     return static_cast<ChildFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
 }
@@ -51,7 +52,7 @@ enum class WindowFlags : std::uint16_t
     NoDecoration            = NoTitleBar | NoResize | NoScrollbar | NoCollapse,
 };
 
-[[nodiscard]] static auto operator|(WindowFlags lhs, WindowFlags rhs) -> WindowFlags
+[[nodiscard]] constexpr static auto operator|(WindowFlags lhs, WindowFlags rhs) -> WindowFlags
 {
     return static_cast<WindowFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
 }
@@ -107,7 +108,7 @@ static void text(std::format_string<Args...> fmt, Args&&... args)
     ImGui::TextUnformatted(std::format(fmt, std::forward<Args>(args)...).c_str());
 }
 
-template<std::invocable Callback>
+template<std::invocable<ImVec2> Callback>
 static void title(const std::string& title, const ImVec2& child_size, Callback&& callback)
 {
     constexpr static auto title_height = 24.0F;
@@ -123,7 +124,8 @@ static void title(const std::string& title, const ImVec2& child_size, Callback&&
     ImGui::EndChild();
     ImGui::PopStyleColor();
 
-    std::invoke(std::forward<Callback>(callback));
+    const auto spacing = ImGui::GetStyle().ItemSpacing.y;
+    std::invoke(std::forward<Callback>(callback), ImVec2(child_size.x, child_size.y - title_height - spacing));
 }
 
 [[nodiscard]] static std::optional<GLuint> load_texture(const std::filesystem::path& path)
@@ -253,7 +255,7 @@ enum class TableFlags : std::uint32_t
     Borders                = BordersInner | BordersOuter,
 };
 
-[[nodiscard]] static auto operator|(TableFlags lhs, TableFlags rhs) -> TableFlags
+[[nodiscard]] constexpr static auto operator|(TableFlags lhs, TableFlags rhs) -> TableFlags
 {
     return static_cast<TableFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
 }
@@ -284,7 +286,7 @@ enum class TreeNodeFlags : std::uint8_t
     DefaultOpen = 1 << 5,
 };
 
-[[nodiscard]] static auto operator|(TreeNodeFlags lhs, TreeNodeFlags rhs) -> TreeNodeFlags
+[[nodiscard]] constexpr static auto operator|(TreeNodeFlags lhs, TreeNodeFlags rhs) -> TreeNodeFlags
 {
     return static_cast<TreeNodeFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
 }
@@ -298,5 +300,129 @@ static void collapsing(const std::string& name, TreeNodeFlags flags, Callback&& 
         ImGui::Unindent();
     }
 }
+
+template<std::size_t Rows, std::size_t Cols>
+[[nodiscard]] static auto grid_layout_calc_size(const ImVec2& available_space = ImGui::GetContentRegionAvail())
+  -> ImVec2
+{
+    const auto spacing = ImGui::GetStyle().ItemSpacing;
+
+    return {
+        (available_space.x - (spacing.x * 2)) / Cols,
+        (available_space.y - (spacing.y * 2)) / Rows,
+    };
+}
+
+namespace Plotting
+{
+
+class [[nodiscard]] RingBuffer final
+{
+  public:
+    explicit RingBuffer(int capacity = 2000)
+      : capacity { capacity }
+    {
+        data.reserve(capacity);
+    }
+
+    void emplace_point(const float x, const float y)
+    {
+        if (data.size() < capacity) {
+            data.push_back(ImVec2(x, y));
+            return;
+        }
+
+        data[cursor] = ImVec2(x, y);
+        cursor       = (cursor + 1) % capacity;
+    }
+
+    [[nodiscard]] auto operator[](const int index) const -> const ImVec2& { return data[index]; }
+
+    [[nodiscard]] auto size() const -> int { return data.size(); }
+
+    [[nodiscard]] auto offset() const -> int { return cursor; }
+
+  private:
+    int              capacity;
+    int              cursor = 0;
+    ImVector<ImVec2> data;
+};
+
+enum class AxisFlags : std::uint8_t
+{
+    None         = 0,
+    NoTickMarks  = 1 << 2,
+    NoTickLabels = 1 << 3,
+};
+
+[[nodiscard]] constexpr static auto operator|(AxisFlags lhs, AxisFlags rhs) -> AxisFlags
+{
+    return static_cast<AxisFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+struct [[nodiscard]] PlotOpts final
+{
+    AxisFlags x_axis_flags;
+    AxisFlags y_axis_flags;
+    double    x_min;
+    double    x_max;
+    double    y_min;
+    double    y_max;
+
+    std::optional<std::string> x_label;
+    std::optional<std::string> y_label;
+    std::optional<ImVec4>      color;
+    std::optional<float>       line_weight;
+};
+
+template<std::invocable Callback>
+static void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Callback&& callback)
+{
+    if (ImPlot::BeginPlot(title.c_str(), size)) {
+        ImPlot::SetupAxes(
+          opts.x_label.has_value() ? opts.x_label->c_str() : nullptr,
+          opts.y_label.has_value() ? opts.y_label->c_str() : nullptr,
+          std::to_underlying(opts.x_axis_flags),
+          std::to_underlying(opts.y_axis_flags)
+        );
+
+        ImPlot::SetupAxisLimits(ImAxis_X1, opts.x_min, opts.x_max, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, opts.y_min, opts.y_max, ImGuiCond_Always);
+
+        if (opts.color) { ImPlot::PushStyleColor(ImPlotCol_Line, opts.color.value()); }
+        if (opts.line_weight) { ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, opts.line_weight.value()); }
+
+        std::invoke(std::forward<Callback>(callback));
+
+        if (opts.line_weight) { ImPlot::PopStyleVar(); }
+        if (opts.color) { ImPlot::PopStyleColor(); }
+        ImPlot::EndPlot();
+    }
+}
+
+enum class LineFlags : std::uint8_t
+{
+    None = 0,
+};
+
+[[nodiscard]] constexpr static auto operator|(LineFlags lhs, LineFlags rhs) -> LineFlags
+{
+    return static_cast<LineFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+static void line(const std::string& label, const RingBuffer& buffer, LineFlags flags)
+{
+    ImPlot::PlotLine(
+      label.c_str(),
+      &buffer[0].x,
+      &buffer[0].y,
+      buffer.size(),
+      std::to_underlying(flags),
+      buffer.offset(),
+      2 * sizeof(float)
+    );
+}
+
+} // namespace Plotting
 
 } // namespace Gui
