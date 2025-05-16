@@ -36,6 +36,8 @@ struct [[nodiscard]] Scheduler final
     std::size_t max_single_event_duration = std::numeric_limits<std::size_t>::max();
     std::size_t max_arrival_time          = std::numeric_limits<std::size_t>::max();
 
+    double                  throughput              = 0;
+    std::size_t             previous_finished_count = 0;
     std::vector<ProcessPtr> finished;
 
     template<std::invocable<Scheduler&> Policy>
@@ -66,6 +68,9 @@ struct [[nodiscard]] Scheduler final
         }
 
         if (complete()) { cpu_usage = 0.0F; };
+
+        throughput = timer != 0 ? (finished.size() - previous_finished_count) / static_cast<double>(timer) : 0.0;
+        previous_finished_count = finished.size();
 
         ++timer;
     }

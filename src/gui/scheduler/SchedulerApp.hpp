@@ -118,6 +118,7 @@ class [[nodiscard]] SchedulerApp final
 
                     draw_key_value("Avg. waiting time", sim->average_waiting_time());
                     draw_key_value("Avg. turnaround time", sim->average_turnaround_time());
+                    draw_key_value("Throughput", sim->throughput);
                 });
             });
         });
@@ -258,6 +259,35 @@ class [[nodiscard]] SchedulerApp final
         });
     }
 
+    void draw_throughput_graph(const ImVec2& child_size)
+    {
+        auto plot_opts = Gui::Plotting::PlotOpts {
+            .x_axis_flags = Gui::Plotting::AxisFlags::NoTickLabels | Gui::Plotting::AxisFlags::NoTickMarks,
+            .y_axis_flags = Gui::Plotting::AxisFlags::None,
+            .x_min        = delta_time - PLOT_HISTORY,
+            .x_max        = delta_time,
+            .y_min        = 0,
+            .y_max        = max_throughput,
+            .x_label      = std::nullopt,
+            .y_label      = std::nullopt,
+            .color        = ImPlot::GetColormapColor(3),
+            .line_weight  = 2.5F,
+        };
+
+        const auto new_value = sim->throughput;
+        if (!sim->complete()) { throughput_buffer.emplace_point(delta_time, new_value); }
+
+        Gui::title("Throughput", child_size, [&](const auto& remaining_size) {
+            max_throughput  = std::max(max_throughput, new_value);
+            plot_opts.y_max = max_throughput;
+
+            Gui::Plotting::plot("##ThroughputPlot", remaining_size, plot_opts, [&] {
+                Gui::Plotting::line("throughput", throughput_buffer, Gui::Plotting::LineFlags::None);
+            });
+        });
+    }
+
+
     void draw_graphs(const ImVec2& child_size)
     {
         const auto nested_child_size = Gui::grid_layout_calc_size<2, 2>(child_size);
@@ -269,7 +299,10 @@ class [[nodiscard]] SchedulerApp final
 
         ImGui::SameLine();
 
-        Gui::group([&] { draw_cpu_usage_graph(nested_child_size); });
+        Gui::group([&] {
+            draw_cpu_usage_graph(nested_child_size);
+            draw_throughput_graph(nested_child_size);
+        });
     }
 
     void draw_average_waiting_time_graph(const ImVec2& child_size)
@@ -368,4 +401,6 @@ class [[nodiscard]] SchedulerApp final
     std::size_t                                             max_waiting_time = 0;
     Gui::Plotting::RingBuffer                               average_turnaround_time_buffer;
     std::size_t                                             max_turnaround_time = 0;
+    Gui::Plotting::RingBuffer                               throughput_buffer;
+    double                                                  max_throughput = 0;
 };
