@@ -183,8 +183,7 @@ class [[nodiscard]] SchedulerApp final
         Gui::center_content_horizontally(BUTTON_SIZE.x * BUTTONS_COUNT);
 
         // If icons could not be loaded fallback
-        if (!maybe_previous_texture_id || !maybe_next_texture_id) {
-            // TODO: implement previous
+        if (!previous_texture_id.loaded() || !next_texture_id.loaded()) {
             Gui::button("Previous", [] {});
 
             ImGui::SameLine();
@@ -199,22 +198,17 @@ class [[nodiscard]] SchedulerApp final
                 if (!sim->complete()) { sim->step(); }
             });
         } else {
-            // TODO: implement previous
-            auto* const previous_texture_id =
-              reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(*maybe_previous_texture_id));
-            Gui::image_button(previous_texture_id, BUTTON_SIZE, [] {});
+            Gui::image_button(previous_texture_id.as_imgui_texture(), BUTTON_SIZE, [] {});
 
             ImGui::SameLine();
 
-            auto* const play_texture_id = reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(*maybe_play_texture_id));
-            Gui::image_button(play_texture_id, BUTTON_SIZE, [this] {
+            Gui::image_button(play_texture_id.as_imgui_texture(), BUTTON_SIZE, [this] {
                 if (!sim->complete()) { should_finish = true; }
             });
 
             ImGui::SameLine();
 
-            auto* const next_texture_id = reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(*maybe_next_texture_id));
-            Gui::image_button(next_texture_id, BUTTON_SIZE, [this] {
+            Gui::image_button(next_texture_id.as_imgui_texture(), BUTTON_SIZE, [this] {
                 if (!sim->complete()) { sim->step(); }
             });
         }
@@ -448,9 +442,6 @@ class [[nodiscard]] SchedulerApp final
     {
         Gui::shutdown(window);
         ImPlot::DestroyContext();
-        glDeleteTextures(1, &(*maybe_previous_texture_id));
-        glDeleteTextures(1, &(*maybe_play_texture_id));
-        glDeleteTextures(1, &(*maybe_next_texture_id));
     }
 
     SchedulerApp(const SchedulerApp&)            = delete;
@@ -461,12 +452,11 @@ class [[nodiscard]] SchedulerApp final
   private:
     explicit SchedulerApp(GLFWwindow* window, const std::shared_ptr<Simulations::Scheduler<SchedulePolicy>>& sim)
       : window { window },
-        sim { sim }
-    {
-        maybe_previous_texture_id = Gui::load_texture("resources/previous.png");
-        maybe_play_texture_id     = Gui::load_texture("resources/play.png");
-        maybe_next_texture_id     = Gui::load_texture("resources/next.png");
-    }
+        sim { sim },
+        previous_texture_id { Gui::Texture::load_from_file("resources/previous.png") },
+        play_texture_id { Gui::Texture::load_from_file("resources/play.png") },
+        next_texture_id { Gui::Texture::load_from_file("resources/next.png") }
+    {}
 
   private:
     GLFWwindow*                                             window = nullptr;
@@ -474,9 +464,9 @@ class [[nodiscard]] SchedulerApp final
     std::shared_ptr<Simulations::Scheduler<SchedulePolicy>> sim;
     bool                                                    should_finish      = false;
     bool                                                    stepped_this_frame = false;
-    std::optional<GLuint>                                   maybe_previous_texture_id;
-    std::optional<GLuint>                                   maybe_play_texture_id;
-    std::optional<GLuint>                                   maybe_next_texture_id;
+    Gui::Texture                                            previous_texture_id;
+    Gui::Texture                                            play_texture_id;
+    Gui::Texture                                            next_texture_id;
     float                                                   delta_time = 0.0F;
     Gui::Plotting::RingBuffer                               cpu_usage_buffer;
     Gui::Plotting::RingBuffer                               average_waiting_time_buffer;

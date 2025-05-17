@@ -128,28 +128,58 @@ static void title(const std::string& title, const ImVec2& child_size, Callback&&
     std::invoke(std::forward<Callback>(callback), ImVec2(child_size.x, child_size.y - title_height - spacing));
 }
 
-[[nodiscard]] static std::optional<GLuint> load_texture(const std::filesystem::path& path)
+class [[nodiscard]] Texture final
 {
-    int           width    = -1;
-    int           height   = -1;
-    int           channels = -1;
-    std::uint8_t* bytes    = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
-    if (bytes == nullptr) {
-        std::println(stderr, "[ERROR] (stb) Failed to load file: {}", path.string());
-        return std::nullopt;
+  public:
+    static auto load_from_file(const std::filesystem::path& path) -> Texture
+    {
+        int           width    = -1;
+        int           height   = -1;
+        int           channels = -1;
+        std::uint8_t* bytes    = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
+        if (bytes == nullptr) {
+            std::println(stderr, "[ERROR] (stb) Failed to load file: {}", path.string());
+            return Texture(std::nullopt);
+        }
+
+        GLuint texture_id = 0;
+        glGenTextures(1, &texture_id);
+        glBindTexture(GL_TEXTURE_2D, texture_id);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bytes);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(bytes);
+
+        return Texture(texture_id);
     }
 
-    GLuint texture_id = 0;
-    glGenTextures(1, &texture_id);
-    glBindTexture(GL_TEXTURE_2D, texture_id);
+    [[nodiscard]] auto loaded() const -> bool { return texture_id.has_value(); }
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bytes);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    [[nodiscard]] auto id() const -> GLuint { return texture_id.value(); }
 
-    stbi_image_free(bytes);
-    return texture_id;
-}
+    [[nodiscard]] auto as_imgui_texture() const -> ImTextureID
+    {
+        return reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(texture_id.value()));
+    }
+
+    ~Texture()
+    {
+        if (texture_id.has_value()) { glDeleteTextures(1, &texture_id.value()); }
+    }
+    Texture(const Texture&)                = delete;
+    Texture& operator=(const Texture&)     = delete;
+    Texture(Texture&&) noexcept            = default;
+    Texture& operator=(Texture&&) noexcept = default;
+
+  private:
+    explicit Texture(const std::optional<GLuint> texture_id_)
+      : texture_id { texture_id_ }
+    {}
+
+    std::optional<GLuint> texture_id;
+};
 
 template<std::invocable Callback>
 static void group(Callback&& callback)
