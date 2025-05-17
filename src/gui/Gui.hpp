@@ -202,9 +202,14 @@ static void button(const std::string& label, const ImVec2& size, Callback&& call
 }
 
 template<std::invocable Callback>
-static void image_button(ImTextureID texture_id, const ImVec2& size, Callback&& callback)
+static void image_button(const Texture& texture, const ImVec2& size, const std::string& fallback, Callback&& callback)
 {
-    if (ImGui::ImageButton(texture_id, size)) { std::invoke(std::forward<Callback>(callback)); }
+    if (!texture.loaded()) {
+        if (ImGui::Button(fallback.c_str())) { std::invoke(std::forward<Callback>(callback)); }
+        return;
+    }
+
+    if (ImGui::ImageButton(texture.as_imgui_texture(), size)) { std::invoke(std::forward<Callback>(callback)); }
 }
 
 static void center_content_horizontally(const float content_width)

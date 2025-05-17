@@ -179,39 +179,22 @@ class [[nodiscard]] SchedulerApp final
 
     void draw_control_buttons()
     {
-        constexpr static auto BUTTONS_COUNT = 2;
+        constexpr static auto BUTTONS_COUNT = 3;
         Gui::center_content_horizontally(BUTTON_SIZE.x * BUTTONS_COUNT);
 
-        // If icons could not be loaded fallback
-        if (!previous_texture_id.loaded() || !next_texture_id.loaded()) {
-            Gui::button("Previous", [] {});
+        Gui::image_button(previous_texture, BUTTON_SIZE, "Previous", [] {});
 
-            ImGui::SameLine();
+        ImGui::SameLine();
 
-            Gui::button("Next", [this] {
-                if (!sim->complete()) { should_finish = true; }
-            });
+        Gui::image_button(play_texture, BUTTON_SIZE, "Play", [this] {
+            if (!sim->complete()) { should_finish = true; }
+        });
 
-            ImGui::SameLine();
+        ImGui::SameLine();
 
-            Gui::button("Next", [this] {
-                if (!sim->complete()) { sim->step(); }
-            });
-        } else {
-            Gui::image_button(previous_texture_id.as_imgui_texture(), BUTTON_SIZE, [] {});
-
-            ImGui::SameLine();
-
-            Gui::image_button(play_texture_id.as_imgui_texture(), BUTTON_SIZE, [this] {
-                if (!sim->complete()) { should_finish = true; }
-            });
-
-            ImGui::SameLine();
-
-            Gui::image_button(next_texture_id.as_imgui_texture(), BUTTON_SIZE, [this] {
-                if (!sim->complete()) { sim->step(); }
-            });
-        }
+        Gui::image_button(next_texture, BUTTON_SIZE, "Next", [this] {
+            if (!sim->complete()) { sim->step(); }
+        });
     }
 
     static void draw_process(const auto& process)
@@ -453,9 +436,9 @@ class [[nodiscard]] SchedulerApp final
     explicit SchedulerApp(GLFWwindow* window, const std::shared_ptr<Simulations::Scheduler<SchedulePolicy>>& sim)
       : window { window },
         sim { sim },
-        previous_texture_id { Gui::Texture::load_from_file("resources/previous.png") },
-        play_texture_id { Gui::Texture::load_from_file("resources/play.png") },
-        next_texture_id { Gui::Texture::load_from_file("resources/next.png") }
+        previous_texture { Gui::Texture::load_from_file("resources/previous.png") },
+        play_texture { Gui::Texture::load_from_file("resources/play.png") },
+        next_texture { Gui::Texture::load_from_file("resources/next.png") }
     {}
 
   private:
@@ -464,9 +447,9 @@ class [[nodiscard]] SchedulerApp final
     std::shared_ptr<Simulations::Scheduler<SchedulePolicy>> sim;
     bool                                                    should_finish      = false;
     bool                                                    stepped_this_frame = false;
-    Gui::Texture                                            previous_texture_id;
-    Gui::Texture                                            play_texture_id;
-    Gui::Texture                                            next_texture_id;
+    Gui::Texture                                            previous_texture;
+    Gui::Texture                                            play_texture;
+    Gui::Texture                                            next_texture;
     float                                                   delta_time = 0.0F;
     Gui::Plotting::RingBuffer                               cpu_usage_buffer;
     Gui::Plotting::RingBuffer                               average_waiting_time_buffer;
