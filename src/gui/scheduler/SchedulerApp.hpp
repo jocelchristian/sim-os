@@ -153,7 +153,17 @@ class [[nodiscard]] SchedulerApp final
                 constexpr static auto METRICS_TABLE_HEADERS = { "Key", "Value" };
                 Gui::draw_table("MetricsTable", METRICS_TABLE_HEADERS, TABLE_FLAGS, [&] {
                     const auto draw_key_value = [](const std::string_view key, const auto& value) {
-                        Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}", value); });
+                        Gui::draw_table_row(
+                          [&] { Gui::text("{}", key); },
+                          [&] {
+                              using Type = std::decay_t<decltype(value)>;
+                              if constexpr (std::is_same_v<Type, double>) {
+                                  Gui::text("{:.2f}", value);
+                              } else {
+                                  Gui::text("{}", value);
+                              }
+                          }
+                        );
                     };
 
                     draw_key_value("Avg. waiting time", sim->average_waiting_time());
