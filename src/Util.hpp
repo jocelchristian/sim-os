@@ -74,6 +74,12 @@ namespace Util
     return ss.str();
 }
 
+static void write_to_file(const std::filesystem::path& file_path, const std::string& content)
+{
+    std::ofstream file(file_path, std::ios::out | std::ios::trunc);
+    file << content;
+}
+
 template<typename... Lambdas>
 struct [[nodiscard]] Visitor : public Lambdas...
 {

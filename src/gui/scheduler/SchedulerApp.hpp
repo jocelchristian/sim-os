@@ -66,6 +66,10 @@ class [[nodiscard]] SchedulerApp final
               "sim-os: scheduler",
               Gui::WindowFlags::NoDecoration | Gui::WindowFlags::NoResize | Gui::WindowFlags::NoMove,
               [this] {
+                  draw_save_button();
+
+                  ImGui::SameLine();
+
                   draw_control_buttons();
 
                   const auto child_size = Gui::grid_layout_calc_size(2, 3);
@@ -175,6 +179,34 @@ class [[nodiscard]] SchedulerApp final
                 });
             });
         });
+    }
+
+    void draw_save_button() const
+    {
+        const auto save_callback = [this] {
+            std::stringstream ss;
+            ss << std::format("timer = {}\n", sim->timer);
+            ss << std::format("schedule_policy = {}\n", SchedulePolicy::POLICY_NAME);
+            ss << std::format("avg_waiting_time = {}\n", sim->average_waiting_time());
+            ss << std::format("max_waiting_time = {}\n", max_waiting_time);
+            ss << std::format("avg_turnaround_time = {}\n", sim->average_turnaround_time());
+            ss << std::format("max_turnaround_time = {}\n", max_turnaround_time);
+            ss << std::format("avg_throughput = {:.2f}\n", sim->throughput);
+            ss << std::format("max_throughput = {:.2f}\n", max_throughput);
+
+            // FIXME: what to do about the file_path here??
+            // maybe introduce ImGuiFileDialog??
+            constexpr static auto FILE_PATH = "examples/scheduler/simple.met";
+            Util::write_to_file(FILE_PATH, ss.str());
+            Gui::toast(
+              std::format("Saved simulation result to {}", FILE_PATH),
+              Gui::ToastPosition::BottomRight,
+              std::chrono::seconds(2),
+              Gui::ToastLevel::Info
+            );
+        };
+
+        Gui::enabled_if(sim->complete(), [&] { Gui::image_button(save_texture, BUTTON_SIZE, "Save", save_callback); });
     }
 
     void draw_control_buttons()
@@ -438,7 +470,8 @@ class [[nodiscard]] SchedulerApp final
         sim { sim },
         previous_texture { Gui::Texture::load_from_file("resources/previous.png") },
         play_texture { Gui::Texture::load_from_file("resources/play.png") },
-        next_texture { Gui::Texture::load_from_file("resources/next.png") }
+        next_texture { Gui::Texture::load_from_file("resources/next.png") },
+        save_texture { Gui::Texture::load_from_file("resources/save.png") }
     {}
 
   private:
@@ -450,6 +483,7 @@ class [[nodiscard]] SchedulerApp final
     Gui::Texture                                            previous_texture;
     Gui::Texture                                            play_texture;
     Gui::Texture                                            next_texture;
+    Gui::Texture                                            save_texture;
     float                                                   delta_time = 0.0F;
     Gui::Plotting::RingBuffer                               cpu_usage_buffer;
     Gui::Plotting::RingBuffer                               average_waiting_time_buffer;

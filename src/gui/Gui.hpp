@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <format>
 #include <functional>
@@ -48,6 +49,7 @@ enum class WindowFlags : std::uint16_t
     NoMove                  = 1 << 2,
     NoScrollbar             = 1 << 3,
     NoCollapse              = 1 << 5,
+    NoSavedSettings         = 1 << 8,
     AlwaysVerticalScrollbar = 1 << 14,
     NoDecoration            = NoTitleBar | NoResize | NoScrollbar | NoCollapse,
 };
@@ -263,21 +265,6 @@ static void new_frame()
     ImGui::NewFrame();
 }
 
-static void draw_call(GLFWwindow* window, const ImVec4& clear_color)
-{
-    ImGui::Render();
-    int display_w = 0;
-    int display_h = 0;
-    glfwGetFramebufferSize(window, &display_w, &display_h);
-    glViewport(0, 0, display_w, display_h);
-    glClearColor(
-      clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w
-    );
-    glClear(GL_COLOR_BUFFER_BIT);
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    glfwSwapBuffers(window);
-}
-
 enum class TableFlags : std::uint32_t
 {
     RowBackground          = 1 << 6,
@@ -350,6 +337,170 @@ static void collapsing(const std::string& name, TreeNodeFlags flags, Callback&& 
         (available_space.x - (spacing.x * 2)) / static_cast<float>(cols),
         (available_space.y - (spacing.y * 2)) / static_cast<float>(rows),
     };
+}
+
+namespace impl
+{
+template<std::invocable Callback>
+static void disabled_impl(const bool control, Callback&& callback)
+{
+    ImGui::BeginDisabled(control);
+    std::invoke(std::forward<Callback>(callback));
+    ImGui::EndDisabled();
+}
+} // namespace impl
+
+template<std::invocable Callback>
+static void disabled_if(const bool control, Callback&& callback)
+{
+    impl::disabled_impl(control, std::forward<Callback>(callback));
+}
+
+template<std::invocable Callback>
+static void enabled_if(const bool control, Callback&& callback)
+{
+    impl::disabled_impl(!control, std::forward<Callback>(callback));
+}
+
+enum class ToastLevel : std::uint8_t
+{
+    Info = 0,
+    Warning,
+    Error,
+};
+
+enum class ToastPosition : std::uint8_t
+{
+    TopLeft = 0,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+};
+
+struct [[nodiscard]] Toast final
+{
+    std::string                  message;
+    std::chrono::duration<float> duration;
+    ToastLevel                   level;
+    ToastPosition                position;
+};
+
+class [[nodiscard]] ToastManager final
+{
+  public:
+    static void add(const Toast& toast) { toasts.push_back(toast); }
+
+    static void render()
+    {
+        const auto delta_time = std::chrono::duration<float>(ImGui::GetIO().DeltaTime);
+        const auto spacing    = ImGui::GetStyle().ItemSpacing;
+
+        float y_offset = 0.0F;
+        for (auto it = toasts.begin(); it != toasts.end();) {
+            auto& toast = *it;
+
+            const auto toast_size = ImVec2(ImGui::CalcTextSize(toast.message.c_str()).x + (spacing.x * 2), 30);
+            auto       position   = toast_position_to_vector(toast.position, toast_size);
+
+            toast.duration -= delta_time;
+            if (toast.duration <= std::chrono::seconds(0)) {
+                it = toasts.erase(it);
+                continue;
+            }
+
+            if (toast.position == Gui::ToastPosition::BottomLeft || toast.position == Gui::ToastPosition::BottomRight) {
+                position.y -= y_offset;
+            } else {
+                position.y += y_offset;
+            }
+
+            constexpr static auto window_flags = Gui::WindowFlags::NoDecoration | Gui::WindowFlags::NoSavedSettings;
+
+            ImGui::SetNextWindowPos(position);
+            ImGui::SetNextWindowSize(toast_size);
+            Gui::window("##Toast", window_flags, [&] {
+                ImGui::PushStyleColor(ImGuiCol_Text, toast_level_to_color(toast.level));
+                Gui::text("{}", toast.message);
+                ImGui::PopStyleColor();
+            });
+
+            y_offset += toast_size.y + spacing.y;
+            ++it;
+        }
+    }
+
+    [[nodiscard]] static auto toast_level_to_color(ToastLevel level) -> ImVec4
+    {
+        switch (level) {
+            case ToastLevel::Info: {
+                return { 0.2F, 0.6F, 1.0F, 1.0F };
+            }
+            case ToastLevel::Warning: {
+                return { 1.0F, 0.6F, 0.0F, 1.0F };
+            }
+            case ToastLevel::Error: {
+                return { 1.0F, 0.2F, 0.2F, 1.0F };
+            }
+        }
+
+        assert(false && "unreachable");
+        return { 1.0F, 0.2F, 0.2F, 1.0F };
+    }
+
+    [[nodiscard]] static auto toast_position_to_vector(ToastPosition position, const ImVec2& toast_size) -> ImVec2
+    {
+        const auto spacing       = ImGui::GetStyle().ItemSpacing;
+        const auto work_position = ImGui::GetMainViewport()->WorkPos;
+        const auto work_size     = ImGui::GetMainViewport()->WorkSize;
+
+        switch (position) {
+            case ToastPosition::TopLeft: {
+                return {
+                    work_position.x + spacing.x,
+                    work_position.y + spacing.y,
+                };
+            }
+            case ToastPosition::TopRight: {
+                return {
+                    work_position.x + work_size.x - toast_size.x - spacing.x,
+                    work_position.y + spacing.y,
+                };
+            }
+            case ToastPosition::BottomLeft: {
+                return {
+                    work_position.x + spacing.x,
+                    work_position.y + work_size.y - toast_size.y - spacing.y,
+                };
+            }
+            case ToastPosition::BottomRight: {
+                return {
+                    work_position.x + work_size.x - toast_size.x - spacing.x,
+                    work_position.y + work_size.y - toast_size.y - spacing.y,
+                };
+            }
+        }
+
+        assert(false && "unreachable");
+        return { 0, 0 };
+    }
+
+  private:
+    inline static std::vector<Toast> toasts;
+};
+
+static void toast(
+  const std::string&                 message,
+  ToastPosition                      position,
+  const std::chrono::duration<float> duration,
+  ToastLevel                         level
+)
+{
+    ToastManager::add(Toast {
+      .message  = message,
+      .duration = duration,
+      .level    = level,
+      .position = position,
+    });
 }
 
 namespace Plotting
@@ -493,5 +644,21 @@ static void line(const std::string& label, const RingBuffer& buffer, LineFlags f
 }
 
 } // namespace Plotting
+
+static void draw_call(GLFWwindow* window, const ImVec4& clear_color)
+{
+    ToastManager::render();
+    ImGui::Render();
+    int display_w = 0;
+    int display_h = 0;
+    glfwGetFramebufferSize(window, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    glClearColor(
+      clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w
+    );
+    glClear(GL_COLOR_BUFFER_BIT);
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    glfwSwapBuffers(window);
+}
 
 } // namespace Gui
