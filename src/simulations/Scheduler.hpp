@@ -258,7 +258,25 @@ struct [[nodiscard]] Scheduler final
     }
 };
 
-struct [[nodiscard]] RoundRobinPolicy
+struct [[nodiscard]] FirstComeFirstServedPolicy final
+{
+    constexpr static auto POLICY_NAME = "First Come First Served";
+
+    template <typename T>
+    void operator()(Scheduler<T>& sim) const
+    {
+        for (std::size_t thread_idx = 0; thread_idx < sim.threads_count; ++thread_idx) {
+            auto& ready = sim.ready[thread_idx];
+            if (ready.empty()) { return; }
+
+            const auto process = ready.front();
+            ready.pop_front();
+            sim.running[thread_idx] = process;
+        }
+    }
+};
+
+struct [[nodiscard]] RoundRobinPolicy final
 {
     constexpr static auto POLICY_NAME = "Round Robin";
 
