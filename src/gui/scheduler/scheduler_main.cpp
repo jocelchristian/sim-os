@@ -17,7 +17,7 @@ auto main(int argc, const char** argv) -> int
     if (!maybe_script_content) { return 1; }
 
     using namespace Simulations;
-    const auto schedule_policy = RoundRobinPolicy {};
+    const auto schedule_policy = FirstComeFirstServedPolicy {};
     using SchedulePolicyType = decltype(schedule_policy);
 
     auto sim = std::make_shared<Scheduler<SchedulePolicyType>>(schedule_policy);

@@ -67,10 +67,30 @@ target_compile_options(scheduler
         -Wextra
         -Werror
         -Wconversion
-        # -Wshadow
-        # -Wpedantic
         -Wno-maybe-uninitialized
-        $<$<CONFIG:Debug>: -ggdb -O2 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
+        $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
         $<$<CONFIG:Release>: -O3>)
 target_link_options(scheduler PRIVATE $<$<CONFIG:Debug>: -fsanitize=address>)
 
+
+add_executable(
+    comparator
+    src/gui/comparator/comparator_main.cpp
+)
+target_include_directories(comparator PRIVATE "${CMAKE_SOURCE_DIR}/src/")
+target_include_directories(comparator SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/include")
+target_link_libraries(comparator PRIVATE GL glfw imgui implot)
+target_compile_definitions(comparator PRIVATE $<$<CONFIG:Debug>:DEBUG>)
+target_compile_features(comparator PRIVATE cxx_std_23)
+target_compile_options(comparator
+    PRIVATE
+        -Wall
+        -Wextra
+        -Werror
+        -Wconversion
+        -Wno-maybe-uninitialized
+        # FIXME: fix this
+        -Wno-unused-function
+        $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
+        $<$<CONFIG:Release>: -O3>)
+target_link_options(comparator PRIVATE $<$<CONFIG:Debug>: -fsanitize=address>)

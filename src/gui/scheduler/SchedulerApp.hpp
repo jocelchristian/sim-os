@@ -187,6 +187,9 @@ class [[nodiscard]] SchedulerApp final
             std::stringstream ss;
             ss << std::format("timer = {}\n", sim->timer);
             ss << std::format("schedule_policy = {}\n", SchedulePolicy::POLICY_NAME);
+
+            ss << "separator\n";
+
             ss << std::format("avg_waiting_time = {}\n", sim->average_waiting_time());
             ss << std::format("max_waiting_time = {}\n", max_waiting_time);
             ss << std::format("avg_turnaround_time = {}\n", sim->average_turnaround_time());
@@ -196,7 +199,7 @@ class [[nodiscard]] SchedulerApp final
 
             // FIXME: what to do about the file_path here??
             // maybe introduce ImGuiFileDialog??
-            constexpr static auto FILE_PATH = "examples/scheduler/simple.met";
+            const auto FILE_PATH = std::format("examples/scheduler/{}_{}.met", SchedulePolicy::POLICY_NAME, sim->timer);
             Util::write_to_file(FILE_PATH, ss.str());
             Gui::toast(
               std::format("Saved simulation result to {}", FILE_PATH),
