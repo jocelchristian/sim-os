@@ -74,7 +74,7 @@ namespace Util
     return ss.str();
 }
 
-static void write_to_file(const std::filesystem::path& file_path, const std::string& content)
+inline void write_to_file(const std::filesystem::path& file_path, const std::string& content)
 {
     std::ofstream file(file_path, std::ios::out | std::ios::trunc);
     file << content;
@@ -93,14 +93,14 @@ template<typename... Lambdas>
 }
 
 template<typename Alternative>
-[[nodiscard]] static auto get(const auto& variant) -> std::optional<Alternative>
+[[nodiscard]] auto get(const auto& variant) -> std::optional<Alternative>
 {
     if (const auto* value = std::get_if<Alternative>(&variant)) { return *value; }
 
     return std::nullopt;
 }
 
-[[nodiscard]] static auto random_float() -> float
+[[nodiscard]] inline auto random_float() -> float
 {
     std::random_device                    rd;
     std::mt19937                          gen(rd());
@@ -108,7 +108,7 @@ template<typename Alternative>
     return dis(gen);
 }
 
-[[nodiscard]] static auto random_natural(const std::size_t min, const std::size_t max) -> std::size_t
+[[nodiscard]] inline auto random_natural(const std::size_t min, const std::size_t max) -> std::size_t
 {
     if (max == 0) { return 0; }
 

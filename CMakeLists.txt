@@ -88,9 +88,6 @@ target_compile_options(comparator
         -Wextra
         -Werror
         -Wconversion
-        -Wno-maybe-uninitialized
-        # FIXME: fix this
-        -Wno-unused-function
         $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
         $<$<CONFIG:Release>: -O3>)
 target_link_options(comparator PRIVATE $<$<CONFIG:Debug>: -fsanitize=address>)

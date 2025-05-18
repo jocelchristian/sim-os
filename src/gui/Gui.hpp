@@ -20,7 +20,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-static void glfw_error_callback(int error, const char* description)
+void glfw_error_callback(int error, const char* description)
 {
     std::print(stderr, "[ERROR] GLFW Error ({}): {}\n", error, description);
 }
@@ -59,7 +59,7 @@ enum class WindowFlags : std::uint16_t
     return static_cast<WindowFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
 }
 
-[[nodiscard]] static auto init_window(const std::string& title, const int width, const int height)
+[[nodiscard]] auto init_window(const std::string& title, const int width, const int height)
   -> std::optional<GLFWwindow*>
 {
     glfwSetErrorCallback(glfw_error_callback);
@@ -95,7 +95,7 @@ enum class WindowFlags : std::uint16_t
     return window;
 }
 
-static void shutdown(GLFWwindow* window)
+void shutdown(GLFWwindow* window)
 {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -105,13 +105,13 @@ static void shutdown(GLFWwindow* window)
 }
 
 template<typename... Args>
-static void text(std::format_string<Args...> fmt, Args&&... args)
+void text(std::format_string<Args...> fmt, Args&&... args)
 {
     ImGui::TextUnformatted(std::format(fmt, std::forward<Args>(args)...).c_str());
 }
 
 template<std::invocable<ImVec2> Callback>
-static void title(const std::string& title, const ImVec2& child_size, Callback&& callback)
+void title(const std::string& title, const ImVec2& child_size, Callback&& callback)
 {
     constexpr static auto title_height = 24.0F;
     const auto            title_size   = ImVec2(child_size.x, title_height);
@@ -184,7 +184,7 @@ class [[nodiscard]] Texture final
 };
 
 template<std::invocable Callback>
-static void group(Callback&& callback)
+void group(Callback&& callback)
 {
     ImGui::BeginGroup();
     std::invoke(std::forward<Callback>(callback));
@@ -192,19 +192,19 @@ static void group(Callback&& callback)
 }
 
 template<std::invocable Callback>
-static void button(const std::string& label, Callback&& callback)
+void button(const std::string& label, Callback&& callback)
 {
     if (ImGui::Button(label.c_str(), ImVec2(0, 0))) { std::invoke(std::forward<Callback>(callback)); }
 }
 
 template<std::invocable Callback>
-static void button(const std::string& label, const ImVec2& size, Callback&& callback)
+void button(const std::string& label, const ImVec2& size, Callback&& callback)
 {
     if (ImGui::Button(label.c_str(), size)) { std::invoke(std::forward<Callback>(callback)); }
 }
 
 template<std::invocable Callback>
-static void image_button(const Texture& texture, const ImVec2& size, const std::string& fallback, Callback&& callback)
+void image_button(const Texture& texture, const ImVec2& size, const std::string& fallback, Callback&& callback)
 {
     if (!texture.loaded()) {
         if (ImGui::Button(fallback.c_str())) { std::invoke(std::forward<Callback>(callback)); }
@@ -214,7 +214,7 @@ static void image_button(const Texture& texture, const ImVec2& size, const std::
     if (ImGui::ImageButton(texture.as_imgui_texture(), size)) { std::invoke(std::forward<Callback>(callback)); }
 }
 
-static void center_content_horizontally(const float content_width)
+void center_content_horizontally(const float content_width)
 {
     const auto spacing         = ImGui::GetStyle().ItemSpacing.x;
     const auto total_width     = content_width + spacing;
@@ -223,7 +223,7 @@ static void center_content_horizontally(const float content_width)
 }
 
 template<std::invocable Callback>
-static void child(const std::string& title, ChildFlags child_flags, WindowFlags window_flags, Callback&& callback)
+void child(const std::string& title, ChildFlags child_flags, WindowFlags window_flags, Callback&& callback)
 {
     if (ImGui::BeginChild(
           title.c_str(), ImVec2(0, 0), std::to_underlying(child_flags), std::to_underlying(window_flags)
@@ -235,7 +235,7 @@ static void child(const std::string& title, ChildFlags child_flags, WindowFlags 
 }
 
 template<std::invocable Callback>
-static void child(
+void child(
   const std::string& title,
   const ImVec2&      size,
   ChildFlags         child_flags,
@@ -251,14 +251,14 @@ static void child(
 }
 
 template<std::invocable Callback>
-static void window(const std::string& title, WindowFlags window_flags, Callback&& callback)
+void window(const std::string& title, WindowFlags window_flags, Callback&& callback)
 {
     ImGui::Begin(title.c_str(), nullptr, std::to_underlying(window_flags));
     std::invoke(std::forward<Callback>(callback));
     ImGui::End();
 }
 
-static void new_frame()
+void new_frame()
 {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -283,7 +283,7 @@ enum class TableFlags : std::uint32_t
 }
 
 template<std::invocable Callback>
-static void
+void
   draw_table(const std::string& name, const std::span<const char* const> headers, TableFlags flags, Callback&& callback)
 {
     if (ImGui::BeginTable(
@@ -297,7 +297,7 @@ static void
 }
 
 template<typename... Callbacks>
-static void draw_table_row(Callbacks&&... callbacks)
+void draw_table_row(Callbacks&&... callbacks)
 {
     ImGui::TableNextRow();
 
@@ -316,7 +316,7 @@ enum class TreeNodeFlags : std::uint8_t
 }
 
 template<std::invocable Callback>
-static void collapsing(const std::string& name, TreeNodeFlags flags, Callback&& callback)
+void collapsing(const std::string& name, TreeNodeFlags flags, Callback&& callback)
 {
     if (ImGui::CollapsingHeader(name.c_str(), std::to_underlying(flags))) {
         ImGui::Indent();
@@ -325,7 +325,7 @@ static void collapsing(const std::string& name, TreeNodeFlags flags, Callback&& 
     }
 }
 
-[[nodiscard]] static auto grid_layout_calc_size(
+[[nodiscard]] auto grid_layout_calc_size(
   const std::size_t rows,
   const std::size_t cols,
   const ImVec2&     available_space = ImGui::GetContentRegionAvail()
@@ -342,7 +342,7 @@ static void collapsing(const std::string& name, TreeNodeFlags flags, Callback&& 
 namespace impl
 {
 template<std::invocable Callback>
-static void disabled_impl(const bool control, Callback&& callback)
+void disabled_impl(const bool control, Callback&& callback)
 {
     ImGui::BeginDisabled(control);
     std::invoke(std::forward<Callback>(callback));
@@ -351,13 +351,13 @@ static void disabled_impl(const bool control, Callback&& callback)
 } // namespace impl
 
 template<std::invocable Callback>
-static void disabled_if(const bool control, Callback&& callback)
+void disabled_if(const bool control, Callback&& callback)
 {
     impl::disabled_impl(control, std::forward<Callback>(callback));
 }
 
 template<std::invocable Callback>
-static void enabled_if(const bool control, Callback&& callback)
+void enabled_if(const bool control, Callback&& callback)
 {
     impl::disabled_impl(!control, std::forward<Callback>(callback));
 }
@@ -488,7 +488,7 @@ class [[nodiscard]] ToastManager final
     inline static std::vector<Toast> toasts;
 };
 
-static void toast(
+void toast(
   const std::string&                 message,
   ToastPosition                      position,
   const std::chrono::duration<float> duration,
@@ -568,7 +568,7 @@ struct [[nodiscard]] PlotOpts final
 };
 
 template<std::invocable Callback>
-static void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Callback&& callback)
+void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Callback&& callback)
 {
     static std::unordered_map<std::string, bool> maximized_map;
 
@@ -630,7 +630,7 @@ enum class LineFlags : std::uint8_t
     return static_cast<LineFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
 }
 
-static void line(const std::string& label, const RingBuffer& buffer, LineFlags flags)
+void line(const std::string& label, const RingBuffer& buffer, LineFlags flags)
 {
     ImPlot::PlotLine(
       label.c_str(),
@@ -645,7 +645,7 @@ static void line(const std::string& label, const RingBuffer& buffer, LineFlags f
 
 } // namespace Plotting
 
-static void draw_call(GLFWwindow* window, const ImVec4& clear_color)
+void draw_call(GLFWwindow* window, const ImVec4& clear_color)
 {
     ToastManager::render();
     ImGui::Render();
