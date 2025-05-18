@@ -31,6 +31,10 @@ class [[nodiscard]] SchedulerApp final
         if (!window) { return nullptr; }
         ImPlot::CreateContext();
 
+        auto& io = ImGui::GetIO();
+        io.Fonts->Clear();
+        io.FontDefault = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0F);
+
         return std::unique_ptr<SchedulerApp>(new SchedulerApp { *window, sim });
     }
 
