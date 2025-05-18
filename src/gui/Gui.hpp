@@ -283,8 +283,12 @@ enum class TableFlags : std::uint32_t
 }
 
 template<std::invocable Callback>
-void
-  draw_table(const std::string& name, const std::span<const char* const> headers, TableFlags flags, Callback&& callback)
+void draw_table(
+  const std::string&                 name,
+  const std::span<const char* const> headers,
+  TableFlags                         flags,
+  Callback&&                         callback
+)
 {
     if (ImGui::BeginTable(
           name.c_str(), static_cast<int>(headers.size()), static_cast<int>(std::to_underlying(flags))
@@ -572,7 +576,8 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
 {
     static std::unordered_map<std::string, bool> maximized_map;
 
-    const auto plot_size = maximized_map[title] ? ImGui::GetIO().DisplaySize : size;
+    const bool was_maximized = maximized_map[title];
+    const auto plot_size = was_maximized ? ImGui::GetIO().DisplaySize : size;
 
     if (maximized_map[title]) {
         ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -591,12 +596,6 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
     }
 
     if (ImPlot::BeginPlot(title.c_str(), plot_size)) {
-        if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-            maximized_map[title] = !maximized_map[title];
-            ImPlot::EndPlot();
-            return;
-        }
-
         ImPlot::SetupAxes(
           opts.x_label.has_value() ? opts.x_label->c_str() : nullptr,
           opts.y_label.has_value() ? opts.y_label->c_str() : nullptr,
@@ -606,6 +605,13 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
 
         ImPlot::SetupAxisLimits(ImAxis_X1, opts.x_min, opts.x_max, opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always);
         ImPlot::SetupAxisLimits(ImAxis_Y1, opts.y_min, opts.y_max, opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always);
+
+        if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            maximized_map[title] = !maximized_map[title];
+            ImPlot::EndPlot();
+            if (was_maximized) { ImGui::End(); }
+            return;
+        }
 
         if (opts.color) { ImPlot::PushStyleColor(ImPlotCol_Line, opts.color.value()); }
         if (opts.line_weight) { ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, opts.line_weight.value()); }
@@ -617,7 +623,7 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
         ImPlot::EndPlot();
     }
 
-    if (maximized_map[title]) { ImGui::End(); }
+    if (was_maximized) { ImGui::End(); }
 }
 
 enum class LineFlags : std::uint8_t
