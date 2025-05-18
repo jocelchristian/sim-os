@@ -155,6 +155,10 @@ auto main(int argc, const char** argv) -> int
     if (!maybe_window) { return 1; }
     auto* window = maybe_window.value();
 
+    auto& io = ImGui::GetIO();
+    io.Fonts->Clear();
+    io.FontDefault = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18.0F);
+
     bool quit = false;
     while (!quit) {
         if (glfwWindowShouldClose(window) == 1) { quit = true; }
