@@ -8,6 +8,8 @@ These are the planned/currently implemented simulations:
 - [ ] virtual memory
 
 # Dependencies
+- CMake
+- GCC 14+
 - OpenGL
 - GLFW
 - ImGui
