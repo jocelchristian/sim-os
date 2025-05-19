@@ -37,6 +37,9 @@ You will then find the following executables inside the build directory:
 - comparator
 
 ## scheduler
+![image](https://github.com/user-attachments/assets/6902f30a-01f7-4936-b052-b7ed2ffc4a52)
+
+
 This is a scheduler simulator. It expects you to give it a file to a simulation described in the custom simulation description language. See [sim-lang] for more info.
 
 These are the currently features that the scheduler supports:
@@ -48,6 +51,8 @@ These are the currently features that the scheduler supports:
 - Saving result of the simulation and the compare them with [comparator]
 
 ### comparator
+![image](https://github.com/user-attachments/assets/3ba9016e-effc-49b8-8216-553bc838400c)
+
 This is a tool built to compare the result of the simulations produced by the scheduler (for now, planning on making it general purpose). It expects you to pass it to its CLI the two simulation results file and it will compare them and highlight the better value for each metric between the two simulations.
 
 ## sim-lang
