@@ -40,7 +40,7 @@ You will then find the following executables inside the build directory:
 ![image](https://github.com/user-attachments/assets/6902f30a-01f7-4936-b052-b7ed2ffc4a52)
 
 
-This is a scheduler simulator. It expects you to give it a file to a simulation described in the custom simulation description language. See [sim-lang] for more info.
+This is a scheduler simulator. It expects you to give it a file to a simulation described in the custom simulation description language. See [sim-lang](sim-lang) for more info.
 
 These are the currently features that the scheduler supports:
 - Stepping the simulation one timer tick at a time
@@ -48,7 +48,7 @@ These are the currently features that the scheduler supports:
 - Visualization of running processes (supports multicore)
 - Plotting of metrics like: cpu usage, waiting time, turnaround time and throughput
 - Different kind of scheduling policy (at compile time though for now)
-- Saving result of the simulation and the compare them with [comparator]
+- Saving result of the simulation and the compare them with [comparator](comparator)
 
 ### comparator
 ![image](https://github.com/user-attachments/assets/3ba9016e-effc-49b8-8216-553bc838400c)
@@ -67,4 +67,4 @@ Supported features:
 - Spawn random processes or custom processes
 
 ### Examples
-For some examples on the syntax of the language checkout [examples].
+For some examples on the syntax of the language checkout [examples](examples).
