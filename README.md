@@ -53,9 +53,10 @@ These are the currently features that the scheduler supports:
 - Saving result of the simulation and the compare them with [comparator](#comparator)
 
 ### comparator
-![image](https://github.com/user-attachments/assets/3ba9016e-effc-49b8-8216-553bc838400c)
+![image](https://github.com/user-attachments/assets/2fada631-417d-4e31-83b1-347c69fa6570)
 
-This is a tool built to compare the result of the simulations produced by the scheduler (for now, planning on making it general purpose). It expects you to pass it to its CLI the two simulation results file and it will compare them and highlight the better value for each metric between the two simulations.
+
+This is a tool built to compare the result of the simulations produced by the scheduler (for now, planning on making it general purpose). It expects you to pass it to its CLI the simulation results files and it will compare them by graphing histograms.
 
 ## sim-lang
 This is the language created to ease the description of a simulation, without touching the C++ code. The script will get interpreted just before the simulation is run.
