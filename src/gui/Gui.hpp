@@ -542,11 +542,12 @@ class [[nodiscard]] RingBuffer final
     ImVector<ImVec2> data;
 };
 
-enum class AxisFlags : std::uint8_t
+enum class AxisFlags : std::uint16_t
 {
     None         = 0,
     NoTickMarks  = 1 << 2,
     NoTickLabels = 1 << 3,
+    AutoFit      = 1 << 11,
 };
 
 [[nodiscard]] constexpr static auto operator|(AxisFlags lhs, AxisFlags rhs) -> AxisFlags
@@ -558,10 +559,11 @@ struct [[nodiscard]] PlotOpts final
 {
     AxisFlags x_axis_flags;
     AxisFlags y_axis_flags;
-    double    x_min;
-    double    x_max;
-    double    y_min;
-    double    y_max;
+
+    std::optional<double> x_min;
+    std::optional<double> x_max;
+    std::optional<double> y_min;
+    std::optional<double> y_max;
 
     std::optional<std::string> x_label;
     std::optional<std::string> y_label;
@@ -577,7 +579,7 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
     static std::unordered_map<std::string, bool> maximized_map;
 
     const bool was_maximized = maximized_map[title];
-    const auto plot_size = was_maximized ? ImGui::GetIO().DisplaySize : size;
+    const auto plot_size     = was_maximized ? ImGui::GetIO().DisplaySize : size;
 
     if (maximized_map[title]) {
         ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -603,8 +605,26 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
           std::to_underlying(opts.y_axis_flags)
         );
 
-        ImPlot::SetupAxisLimits(ImAxis_X1, opts.x_min, opts.x_max, opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, opts.y_min, opts.y_max, opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always);
+        const auto default_range = ImPlotRange(0, 1);
+
+        ImPlot::SetupAxisLimits(
+          ImAxis_X1,
+          opts.x_min.value_or(default_range.Min),
+          opts.x_max.value_or(default_range.Max),
+          opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always
+        );
+
+        ImPlot::SetupAxisLimits(
+          ImAxis_Y1,
+          opts.y_min.value_or(default_range.Min),
+          opts.y_max.value_or(default_range.Max),
+          opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always
+        );
+
+        if (opts.color) { ImPlot::PushStyleColor(ImPlotCol_Line, opts.color.value()); }
+        if (opts.line_weight) { ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, opts.line_weight.value()); }
+
+        std::invoke(std::forward<Callback>(callback));
 
         if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             maximized_map[title] = !maximized_map[title];
@@ -612,11 +632,6 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
             if (was_maximized) { ImGui::End(); }
             return;
         }
-
-        if (opts.color) { ImPlot::PushStyleColor(ImPlotCol_Line, opts.color.value()); }
-        if (opts.line_weight) { ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, opts.line_weight.value()); }
-
-        std::invoke(std::forward<Callback>(callback));
 
         if (opts.line_weight) { ImPlot::PopStyleVar(); }
         if (opts.color) { ImPlot::PopStyleColor(); }

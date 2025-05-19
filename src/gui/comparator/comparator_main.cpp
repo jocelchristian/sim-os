@@ -1,7 +1,11 @@
 #include "gui/Gui.hpp"
 #include "imgui.h"
+#include "implot.h"
 #include "Util.hpp"
+#include <algorithm>
+#include <cstddef>
 #include <print>
+#include <ranges>
 
 [[nodiscard]] static auto split_key_value(const std::string_view line) -> std::pair<std::string_view, std::string_view>
 {
@@ -110,7 +114,7 @@ using ColoredTable = std::unordered_map<std::string, ColoredValue>;
     return std::make_optional(std::make_pair(lhs_result, rhs_result));
 }
 
-static void draw_metrics_table(const std::string& name, const ColoredTable& table)
+[[maybe_unused]] static void draw_metrics_table(const std::string& name, const ColoredTable& table)
 {
     const auto HEADERS = { "Key", "Value" };
     Gui::draw_table(
@@ -155,9 +159,11 @@ auto main(int argc, const char** argv) -> int
     if (!maybe_window) { return 1; }
     auto* window = maybe_window.value();
 
+    ImPlot::CreateContext();
+
     auto& io = ImGui::GetIO();
     io.Fonts->Clear();
-    io.FontDefault = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18.0F);
+    io.FontDefault = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14.0F);
 
     bool quit = false;
     while (!quit) {
@@ -174,31 +180,78 @@ auto main(int argc, const char** argv) -> int
           "sim-os: comparator",
           Gui::WindowFlags::NoDecoration | Gui::WindowFlags::NoResize | Gui::WindowFlags::NoMove,
           [&] {
-              const auto child_size = Gui::grid_layout_calc_size(1, 2);
-
               Gui::group([&] {
-                  Gui::title(first_file.string(), child_size, [&](const auto& remaining_size) {
-                      Gui::child(
-                        std::format("{}Child", first_file.string()),
-                        remaining_size,
-                        Gui::ChildFlags::Border,
-                        Gui::WindowFlags::None,
-                        [&] { draw_metrics_table(first_file.string(), first_table_colored); }
-                      );
-                  });
-              });
+                  Gui::child("##HistogramChild", Gui::ChildFlags::Border, Gui::WindowFlags::None, [&] {
+                      Gui::Plotting::PlotOpts plot_opts = {
+                          .x_axis_flags = Gui::Plotting::AxisFlags::AutoFit,
+                          .y_axis_flags = Gui::Plotting::AxisFlags::AutoFit,
+                          .x_min        = -0.5,
+                          .x_max        = 2 - 0.5,
+                          .y_min        = std::nullopt,
+                          .y_max        = std::nullopt,
+                          .x_label      = std::nullopt,
+                          .y_label      = std::nullopt,
+                          .color        = std::nullopt,
+                          .line_weight  = std::nullopt,
+                          .can_scroll   = false,
 
-              ImGui::SameLine();
+                      };
+                      constexpr static auto TO_IGNORE = { "schedule_policy" };
+                      auto keys = std::views::filter(first_table_colored | std::views::keys, [](const auto& elem) {
+                          return !std::ranges::contains(TO_IGNORE, elem);
+                      });
 
-              Gui::group([&] {
-                  Gui::title(second_file.string(), child_size, [&](const auto& remaining_size) {
-                      Gui::child(
-                        std::format("{}Child", second_file.string()),
-                        remaining_size,
-                        Gui::ChildFlags::Border,
-                        Gui::WindowFlags::None,
-                        [&] { draw_metrics_table(second_file.string(), second_table_colored); }
-                      );
+                      const auto keys_count = std::ranges::distance(keys);
+                      const auto cols       = static_cast<int>(std::ceil(std::sqrt(keys_count)));
+                      const auto rows =
+                        static_cast<int>(std::ceil(static_cast<double>(keys_count) / static_cast<double>(cols)));
+                      // const auto plot_size = Gui::grid_layout_calc_size(
+                      // static_cast<std::size_t>(rows), static_cast<std::size_t>(cols), ImGui::GetContentRegionAvail()
+                      // );
+
+                      ImPlot::BeginSubplots("##HistogramSubplots", rows, cols, ImGui::GetContentRegionAvail(), 0);
+
+                      for (const auto& key : keys) {
+                          const auto raw_values =
+                            std::array { first_table_colored.at(key).value, second_table_colored.at(key).value };
+
+                          std::array<double, raw_values.size()> values {};
+                          for (const auto& [idx, elem] : std::views::zip(std::views::iota(0UL), raw_values)) {
+                              values[idx] = try_parse_string_as_float(elem).value();
+                          }
+
+                          const auto max_value = std::ranges::max(values);
+                          plot_opts.y_max      = max_value * 1.1;
+
+                          Gui::Plotting::plot(key, ImVec2(0, 0), plot_opts, [&] {
+                              ImPlot::SetupLegend(ImPlotLocation_NorthWest);
+                              std::array<std::string, 2> labels {};
+                              for (std::size_t idx = 0; idx < 2; ++idx) {
+                                  labels[idx] = std::format("{} #{}", key, idx);
+                              }
+
+                              std::array<const char*, 2> labels_cstr {};
+                              for (std::size_t idx = 0; idx < 2; ++idx) { labels_cstr[idx] = labels[idx].c_str(); }
+
+                              std::array<double, 2> positions {};
+                              for (std::size_t pos = 0; pos < 2; ++pos) { positions[pos] = static_cast<double>(pos); }
+
+                              constexpr static auto BAR_WIDTH = 0.2F;
+                              ImPlot::SetupAxisTicks(ImAxis_X1, positions.data(), positions.size(), labels_cstr.data());
+
+                              const auto coordinates = std::views::zip(positions, values);
+                              for (const auto& [idx, coords] : std::views::zip(std::views::iota(0), coordinates)) {
+                                  const auto& [x, y] = coords;
+                                  ImPlot::PushStyleColor(
+                                    ImPlotCol_Fill, ImPlot::GetColormapColor(idx % ImPlot::GetColormapSize())
+                                  );
+                                  ImPlot::PlotBars(std::format("{} #{}", key, idx).c_str(), &x, &y, 1, BAR_WIDTH);
+                                  ImPlot::PopStyleColor();
+                              }
+                          });
+                      }
+
+                      ImPlot::EndSubplots();
                   });
               });
           }
@@ -207,5 +260,6 @@ auto main(int argc, const char** argv) -> int
         Gui::draw_call(window, ImVec4(.96F, .96F, .96F, 1.0F));
     }
 
+    ImPlot::DestroyContext();
     Gui::shutdown(window);
 }
