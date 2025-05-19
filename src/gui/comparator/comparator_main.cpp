@@ -117,13 +117,8 @@ static void draw_bar_charts(const std::span<const std::string> labels, const aut
         .y_axis_flags = Gui::Plotting::AxisFlags::AutoFit,
         .x_min        = -0.5,
         .x_max        = static_cast<double>(labels.size()) - 0.5,
-        .y_min        = std::nullopt,
-        .y_max        = std::nullopt,
-        .x_label      = std::nullopt,
-        .y_label      = std::nullopt,
-        .color        = std::nullopt,
-        .line_weight  = std::nullopt,
-        .can_scroll   = false,
+        .scrollable   = false,
+        .maximizable  = false,
     };
 
     Gui::Plotting::subplots(

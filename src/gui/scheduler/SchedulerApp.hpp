@@ -334,11 +334,9 @@ class [[nodiscard]] SchedulerApp final
             .x_max        = delta_time,
             .y_min        = 0,
             .y_max        = 100,
-            .x_label      = std::nullopt,
-            .y_label      = std::nullopt,
             .color        = ImPlot::GetColormapColor(1),
             .line_weight  = 2.5F,
-            .can_scroll   = sim->complete(),
+            .scrollable   = sim->complete(),
         };
 
         if (!sim->complete()) {
@@ -361,11 +359,9 @@ class [[nodiscard]] SchedulerApp final
             .x_max        = delta_time,
             .y_min        = 0,
             .y_max        = max_throughput,
-            .x_label      = std::nullopt,
-            .y_label      = std::nullopt,
             .color        = ImPlot::GetColormapColor(3),
             .line_weight  = 2.5F,
-            .can_scroll   = sim->complete(),
+            .scrollable   = sim->complete(),
         };
 
         const auto new_value = sim->throughput;
@@ -376,7 +372,9 @@ class [[nodiscard]] SchedulerApp final
             plot_opts.y_max = max_throughput;
 
             Gui::Plotting::plot("##ThroughputPlot", remaining_size, plot_opts, [&] {
-                Gui::Plotting::line("throughput", throughput_buffer, Gui::Plotting::LineFlags::None);
+                Gui::Plotting::line(
+                  "throughput", throughput_buffer, Gui::Plotting::LineFlags::None
+                );
             });
         });
     }
@@ -408,11 +406,9 @@ class [[nodiscard]] SchedulerApp final
             .x_max        = delta_time,
             .y_min        = 0,
             .y_max        = static_cast<double>(max_waiting_time),
-            .x_label      = std::nullopt,
-            .y_label      = std::nullopt,
             .color        = ImPlot::GetColormapColor(7),
             .line_weight  = 2.5F,
-            .can_scroll   = sim->complete(),
+            .scrollable   = sim->complete(),
         };
 
         const auto new_value = sim->average_waiting_time();
@@ -441,7 +437,7 @@ class [[nodiscard]] SchedulerApp final
             .y_label      = std::nullopt,
             .color        = ImPlot::GetColormapColor(2),
             .line_weight  = 2.5F,
-            .can_scroll   = sim->complete(),
+            .scrollable   = sim->complete(),
         };
 
         const auto new_value = sim->average_turnaround_time();

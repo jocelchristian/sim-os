@@ -558,20 +558,21 @@ enum class AxisFlags : std::uint16_t
 
 struct [[nodiscard]] PlotOpts final
 {
-    AxisFlags x_axis_flags;
-    AxisFlags y_axis_flags;
+    AxisFlags x_axis_flags = AxisFlags::None;
+    AxisFlags y_axis_flags = AxisFlags::None;
 
-    std::optional<double> x_min;
-    std::optional<double> x_max;
-    std::optional<double> y_min;
-    std::optional<double> y_max;
+    std::optional<double> x_min = std::nullopt;
+    std::optional<double> x_max = std::nullopt;
+    std::optional<double> y_min = std::nullopt;
+    std::optional<double> y_max = std::nullopt;
 
-    std::optional<std::string> x_label;
-    std::optional<std::string> y_label;
-    std::optional<ImVec4>      color;
-    std::optional<float>       line_weight;
+    std::optional<std::string> x_label     = std::nullopt;
+    std::optional<std::string> y_label     = std::nullopt;
+    std::optional<ImVec4>      color       = std::nullopt;
+    std::optional<float>       line_weight = std::nullopt;
 
-    bool can_scroll = false;
+    bool scrollable  = true;
+    bool maximizable = true;
 };
 
 template<std::invocable Callback>
@@ -582,7 +583,7 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
     const bool was_maximized = maximized_map[title];
     const auto plot_size     = was_maximized ? ImGui::GetIO().DisplaySize : size;
 
-    if (maximized_map[title]) {
+    if (opts.maximizable && maximized_map[title]) {
         ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
@@ -612,14 +613,14 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
           ImAxis_X1,
           opts.x_min.value_or(default_range.Min),
           opts.x_max.value_or(default_range.Max),
-          opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always
+          opts.scrollable ? ImGuiCond_Once : ImGuiCond_Always
         );
 
         ImPlot::SetupAxisLimits(
           ImAxis_Y1,
           opts.y_min.value_or(default_range.Min),
           opts.y_max.value_or(default_range.Max),
-          opts.can_scroll ? ImGuiCond_Once : ImGuiCond_Always
+          opts.scrollable ? ImGuiCond_Once : ImGuiCond_Always
         );
 
         if (opts.color) { ImPlot::PushStyleColor(ImPlotCol_Line, opts.color.value()); }
@@ -627,7 +628,7 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
 
         std::invoke(std::forward<Callback>(callback));
 
-        if (ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+        if (opts.maximizable && ImPlot::IsPlotHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             maximized_map[title] = !maximized_map[title];
             ImPlot::EndPlot();
             if (was_maximized) { ImGui::End(); }
@@ -639,7 +640,7 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
         ImPlot::EndPlot();
     }
 
-    if (was_maximized) { ImGui::End(); }
+    if (opts.maximizable && was_maximized) { ImGui::End(); }
 }
 
 enum class LineFlags : std::uint8_t
