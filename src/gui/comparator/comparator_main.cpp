@@ -31,6 +31,24 @@
     return number;
 }
 
+[[nodiscard]] static auto wordify(std::string str) -> std::string
+{
+    std::ranges::replace(str, '_', ' ');
+    return str;
+}
+
+[[nodiscard]] static auto capitalize(std::string str) -> std::string
+{
+    for (auto word : str | std::views::split(' ')) {
+        if (!word.empty()) {
+            auto first = word.begin();
+            *first     = static_cast<char>(std::toupper(static_cast<unsigned char>(*first)));
+        }
+    }
+
+    return str;
+}
+
 [[nodiscard]] static auto parse_content(const std::string& content)
   -> std::optional<std::unordered_map<std::string, std::string>>
 {
@@ -42,7 +60,7 @@
 
         const auto [key, value] = split_key_value(line);
         if (key.empty() && value.empty()) { continue; }
-        result.emplace(key, value);
+        result.emplace(capitalize(wordify(std::string(key))), value);
     }
 
     return result;
@@ -78,7 +96,7 @@ using Table = std::unordered_map<std::string, std::string>;
 
 [[nodiscard]] static auto valid_keys(const auto keys) -> std::vector<std::string>
 {
-    constexpr static auto TO_IGNORE = { "schedule_policy" };
+    constexpr static auto TO_IGNORE = { "Schedule Policy" };
 
     // clang-format off
     return keys
