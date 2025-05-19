@@ -5,3 +5,4 @@ TODO
 *.ini
 .project*
 *.met
+compile_commands.json
