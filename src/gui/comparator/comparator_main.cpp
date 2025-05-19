@@ -6,30 +6,25 @@
 #include <cstddef>
 #include <print>
 #include <ranges>
+#include <unordered_map>
 
 [[nodiscard]] static auto split_key_value(const std::string_view line) -> std::pair<std::string_view, std::string_view>
 {
-    auto trim = [](std::string_view s) -> std::string_view {
-        const auto first = s.find_first_not_of(" \t");
-        const auto last  = s.find_last_not_of(" \t");
-        return (first == std::string_view::npos) ? std::string_view {} : s.substr(first, last - first + 1);
-    };
-
     auto parts = line | std::views::split('=') | std::views::transform([](auto&& r) {
                      return std::string_view(&*r.begin(), static_cast<std::size_t>(std::ranges::distance(r)));
                  });
 
     std::array<std::string_view, 2> result {};
     auto                            it = parts.begin();
-    if (it != parts.end()) { result[0] = trim(*it++); }
-    if (it != parts.end()) { result[1] = trim(*it); }
+    if (it != parts.end()) { result[0] = Util::trim(*it++); }
+    if (it != parts.end()) { result[1] = Util::trim(*it); }
 
     return { result[0], result[1] };
 }
 
-[[nodiscard]] static auto try_parse_string_as_float(const std::string& str) -> std::optional<float>
+[[nodiscard]] static auto try_parse_string_as_double(const std::string& str) -> std::optional<double>
 {
-    float number         = 0.0F;
+    double number        = 0.0F;
     const auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), number);
     if (ec != std::errc {}) { return std::nullopt; }
 
@@ -53,107 +48,52 @@
     return result;
 }
 
-constexpr static auto RED   = ImVec4(1.0F, 0.0F, 0.0F, 1.0F);
-constexpr static auto GREEN = ImVec4(0.0F, 1.0F, 0.0F, 1.0F);
-
-struct [[nodiscard]] ColoredValue final
+[[nodiscard]] static auto read_files(const std::span<const std::filesystem::path> paths)
+  -> std::optional<std::vector<std::string>>
 {
-    std::string           value;
-    std::optional<ImVec4> color;
-};
-
-using ColoredTable = std::unordered_map<std::string, ColoredValue>;
-
-[[nodiscard]] static auto assign_colors(const auto& lhs, const auto& rhs)
-  -> std::optional<std::pair<ColoredTable, ColoredTable>>
-{
-    std::unordered_map<std::string, ColoredValue> lhs_result = {};
-    std::unordered_map<std::string, ColoredValue> rhs_result = {};
-
-    const auto lhs_keys = lhs | std::views::keys;
-    const auto rhs_keys = rhs | std::views::keys;
-    if (!std::ranges::equal(lhs_keys, rhs_keys)) {
-        std::println("[ERROR] (parsing) the two files have different metrics. Try regenerating them");
-        return std::nullopt;
+    std::vector<std::string> file_contents;
+    file_contents.reserve(paths.size());
+    for (const auto& path : paths) {
+        const auto content = TRY(Util::read_entire_file(path));
+        file_contents.push_back(content);
     }
 
-    for (const auto& key : lhs_keys) {
-        const auto& lhs_value = lhs.at(key);
-        const auto& rhs_value = rhs.at(key);
+    return file_contents;
+}
 
-        const auto lhs_value_number = try_parse_string_as_float(lhs_value);
-        const auto rhs_value_number = try_parse_string_as_float(rhs_value);
-        if (!lhs_value_number || !rhs_value_number) {
-            lhs_result.emplace(key, ColoredValue { .value = lhs_value, .color = std::nullopt });
-            rhs_result.emplace(key, ColoredValue { .value = rhs_value, .color = std::nullopt });
-            continue;
-        }
+using Table = std::unordered_map<std::string, std::string>;
 
-        constexpr static auto LOWER_BETTER = {
-            "avg_waiting_time", "max_waiting_time", "avg_turnaround_time", "max_turnaround_time", "timer"
-        };
-        if (lhs_value_number.value() < rhs_value_number.value()) {
-            if (std::ranges::contains(LOWER_BETTER, key)) {
-                lhs_result.emplace(key, ColoredValue { .value = lhs_value, .color = GREEN });
-                rhs_result.emplace(key, ColoredValue { .value = rhs_value, .color = RED });
-            } else {
-                lhs_result.emplace(key, ColoredValue { .value = lhs_value, .color = RED });
-                rhs_result.emplace(key, ColoredValue { .value = rhs_value, .color = GREEN });
-            }
-        } else {
-            if (std::ranges::contains(LOWER_BETTER, key)) {
-                lhs_result.emplace(key, ColoredValue { .value = lhs_value, .color = RED });
-                rhs_result.emplace(key, ColoredValue { .value = rhs_value, .color = GREEN });
-            } else {
-                lhs_result.emplace(key, ColoredValue { .value = lhs_value, .color = GREEN });
-                rhs_result.emplace(key, ColoredValue { .value = rhs_value, .color = RED });
-            }
-        }
+[[nodiscard]] static auto tables_from_file_contents(const std::span<const std::string> contents)
+  -> std::optional<std::vector<Table>>
+{
+    std::vector<Table> tables;
+    tables.reserve(contents.size());
+    for (const auto& file_content : contents) {
+        const auto parsed_content = TRY(parse_content(file_content));
+        tables.push_back(parsed_content);
     }
 
-    return std::make_optional(std::make_pair(lhs_result, rhs_result));
+    return tables;
 }
 
-[[maybe_unused]] static void draw_metrics_table(const std::string& name, const ColoredTable& table)
-{
-    const auto HEADERS = { "Key", "Value" };
-    Gui::draw_table(
-      std::format("{}Table", name),
-      HEADERS,
-      Gui::TableFlags::Borders | Gui::TableFlags::RowBackground,
-      [&] {
-          for (const auto& [key, value] : table) {
-              if (value.color.has_value()) { ImGui::PushStyleColor(ImGuiCol_Text, value.color.value()); }
-              Gui::draw_table_row([&] { Gui::text("{}", key); }, [&] { Gui::text("{}", value.value); });
-              if (value.color.has_value()) { ImGui::PopStyleColor(); }
-          }
-      }
-    );
-}
-
-static void usage(const char* executable) { std::println("{}: <file1.met> <file2.met>", executable); }
+static void usage(const char* executable) { std::println("{}: (<file1.met> <file2.met>)+", executable); }
 
 auto main(int argc, const char** argv) -> int
 {
-    if (argc < 3) {
-        usage(argv[0]);
+    const std::span args(argv, static_cast<std::size_t>(argc));
+    if (args.size() < 3) {
+        usage(args[0]);
         return 1;
     }
 
-    const std::filesystem::path& first_file  = argv[1];
-    const std::filesystem::path& second_file = argv[2];
+    std::vector<std::filesystem::path> file_paths;
+    for (const auto& arg : args | std::views::drop(1)) { file_paths.emplace_back(arg); }
 
-    const auto first_content  = Util::read_entire_file(first_file);
-    const auto second_content = Util::read_entire_file(second_file);
-    if (!first_content || !second_content) { return 1; }
+    const auto file_contents = read_files(file_paths);
+    if (!file_contents || file_contents->size() < 2) { return 1; }
 
-    const auto first_table  = parse_content(first_content.value());
-    const auto second_table = parse_content(second_content.value());
-    if (!first_table || !second_table) { return 1; }
-
-    const auto result = assign_colors(first_table.value(), second_table.value());
-    if (!result) { return 1; }
-    const auto [first_table_colored, second_table_colored] = result.value();
+    const auto tables = tables_from_file_contents(file_contents.value());
+    if (!tables) { return 1; }
 
     const auto maybe_window = Gui::init_window("sim-os: comparator", 1920, 1080);
     if (!maybe_window) { return 1; }
@@ -183,10 +123,11 @@ auto main(int argc, const char** argv) -> int
               Gui::group([&] {
                   Gui::child("##HistogramChild", Gui::ChildFlags::Border, Gui::WindowFlags::None, [&] {
                       Gui::Plotting::PlotOpts plot_opts = {
-                          .x_axis_flags = Gui::Plotting::AxisFlags::AutoFit,
+                          .x_axis_flags = Gui::Plotting::AxisFlags::AutoFit | Gui::Plotting::AxisFlags::NoTickLabels
+                                          | Gui::Plotting::AxisFlags::NoTickMarks,
                           .y_axis_flags = Gui::Plotting::AxisFlags::AutoFit,
                           .x_min        = -0.5,
-                          .x_max        = 2 - 0.5,
+                          .x_max        = static_cast<double>(tables->size()) - 0.5,
                           .y_min        = std::nullopt,
                           .y_max        = std::nullopt,
                           .x_label      = std::nullopt,
@@ -197,7 +138,7 @@ auto main(int argc, const char** argv) -> int
 
                       };
                       constexpr static auto TO_IGNORE = { "schedule_policy" };
-                      auto keys = std::views::filter(first_table_colored | std::views::keys, [](const auto& elem) {
+                      auto keys = std::views::filter(tables.value().front() | std::views::keys, [](const auto& elem) {
                           return !std::ranges::contains(TO_IGNORE, elem);
                       });
 
@@ -205,47 +146,47 @@ auto main(int argc, const char** argv) -> int
                       const auto cols       = static_cast<int>(std::ceil(std::sqrt(keys_count)));
                       const auto rows =
                         static_cast<int>(std::ceil(static_cast<double>(keys_count) / static_cast<double>(cols)));
-                      // const auto plot_size = Gui::grid_layout_calc_size(
-                      // static_cast<std::size_t>(rows), static_cast<std::size_t>(cols), ImGui::GetContentRegionAvail()
-                      // );
 
                       ImPlot::BeginSubplots("##HistogramSubplots", rows, cols, ImGui::GetContentRegionAvail(), 0);
 
                       for (const auto& key : keys) {
-                          const auto raw_values =
-                            std::array { first_table_colored.at(key).value, second_table_colored.at(key).value };
-
-                          std::array<double, raw_values.size()> values {};
-                          for (const auto& [idx, elem] : std::views::zip(std::views::iota(0UL), raw_values)) {
-                              values[idx] = try_parse_string_as_float(elem).value();
+                          std::vector<double> values;
+                          for (const auto& table : *tables) {
+                              const auto parse_result = try_parse_string_as_double(table.at(key));
+                              assert(parse_result.has_value() && "unreachable");
+                              values.push_back(parse_result.value());
                           }
 
-                          const auto max_value = std::ranges::max(values);
-                          plot_opts.y_max      = max_value * 1.1;
+                          plot_opts.y_max = std::ranges::max(values) * 1.1;
 
                           Gui::Plotting::plot(key, ImVec2(0, 0), plot_opts, [&] {
                               ImPlot::SetupLegend(ImPlotLocation_NorthWest);
-                              std::array<std::string, 2> labels {};
-                              for (std::size_t idx = 0; idx < 2; ++idx) {
-                                  labels[idx] = std::format("{} #{}", key, idx);
+
+                              std::vector<std::string> labels;
+                              for (const auto& file_path : file_paths) { labels.push_back(file_path.stem().string()); }
+
+                              std::vector<const char*> labels_cstr;
+                              for (const auto& label : labels) { labels_cstr.push_back(label.c_str()); }
+
+                              std::vector<double> positions {};
+                              positions.reserve(tables->size());
+                              for (std::size_t pos = 0; pos < tables->size(); ++pos) {
+                                  positions.push_back(static_cast<double>(pos));
                               }
 
-                              std::array<const char*, 2> labels_cstr {};
-                              for (std::size_t idx = 0; idx < 2; ++idx) { labels_cstr[idx] = labels[idx].c_str(); }
-
-                              std::array<double, 2> positions {};
-                              for (std::size_t pos = 0; pos < 2; ++pos) { positions[pos] = static_cast<double>(pos); }
-
                               constexpr static auto BAR_WIDTH = 0.2F;
-                              ImPlot::SetupAxisTicks(ImAxis_X1, positions.data(), positions.size(), labels_cstr.data());
+                              ImPlot::SetupAxisTicks(
+                                ImAxis_X1, positions.data(), static_cast<int>(positions.size()), nullptr
+                              );
 
                               const auto coordinates = std::views::zip(positions, values);
-                              for (const auto& [idx, coords] : std::views::zip(std::views::iota(0), coordinates)) {
+                              for (const auto& [idx, coords] : std::views::zip(std::views::iota(0UL), coordinates)) {
                                   const auto& [x, y] = coords;
                                   ImPlot::PushStyleColor(
-                                    ImPlotCol_Fill, ImPlot::GetColormapColor(idx % ImPlot::GetColormapSize())
+                                    ImPlotCol_Fill,
+                                    ImPlot::GetColormapColor(static_cast<int>(idx) % ImPlot::GetColormapSize())
                                   );
-                                  ImPlot::PlotBars(std::format("{} #{}", key, idx).c_str(), &x, &y, 1, BAR_WIDTH);
+                                  ImPlot::PlotBars(labels_cstr[idx], &x, &y, 1, BAR_WIDTH);
                                   ImPlot::PopStyleColor();
                               }
                           });
