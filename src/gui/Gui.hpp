@@ -6,6 +6,7 @@
 #include <functional>
 #include <optional>
 #include <print>
+#include <ranges>
 #include <span>
 
 #include <backends/imgui_impl_glfw.h>
@@ -662,6 +663,57 @@ void line(const std::string& label, const RingBuffer& buffer, LineFlags flags)
       buffer.offset(),
       2 * sizeof(float)
     );
+}
+
+enum class SubplotFlags : std::uint8_t
+{
+    None = 0,
+};
+
+[[nodiscard]] constexpr static auto operator|(SubplotFlags lhs, SubplotFlags rhs) -> SubplotFlags
+{
+    return static_cast<SubplotFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+template<std::invocable Callback>
+void subplots(
+  const std::string&       title,
+  const std::integral auto count,
+  const ImVec2&            size,
+  SubplotFlags             flags,
+  Callback&&               callback
+)
+{
+    const auto cols = static_cast<int>(std::ceil(std::sqrt(count)));
+    const auto rows = static_cast<int>(std::ceil(static_cast<double>(count) / static_cast<double>(cols)));
+
+    ImPlot::BeginSubplots(title.c_str(), rows, cols, size, std::to_underlying(flags));
+    std::invoke(std::forward<Callback>(callback));
+    ImPlot::EndSubplots();
+}
+
+void bars(const std::span<const std::string> labels, const std::span<const double> values)
+{
+    constexpr static auto BAR_WIDTH = 0.2F;
+
+    std::vector<const char*> labels_cstr;
+    for (const auto& label : labels) { labels_cstr.push_back(label.c_str()); }
+
+    std::vector<double> positions {};
+    positions.reserve(labels.size());
+    for (std::size_t pos = 0; pos < labels.size(); ++pos) { positions.push_back(static_cast<double>(pos)); }
+
+    ImPlot::SetupAxisTicks(ImAxis_X1, positions.data(), static_cast<int>(positions.size()), nullptr);
+
+    const auto point = std::views::zip(positions, values);
+    for (const auto& [idx, coords] : std::views::zip(std::views::iota(0UL), point)) {
+        const auto& [x, y] = coords;
+        ImPlot::PushStyleColor(
+          ImPlotCol_Fill, ImPlot::GetColormapColor(static_cast<int>(idx) % ImPlot::GetColormapSize())
+        );
+        ImPlot::PlotBars(labels_cstr[idx], &x, &y, 1, BAR_WIDTH);
+        ImPlot::PopStyleColor();
+    }
 }
 
 } // namespace Plotting

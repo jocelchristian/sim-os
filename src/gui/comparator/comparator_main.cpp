@@ -76,6 +76,70 @@ using Table = std::unordered_map<std::string, std::string>;
     return tables;
 }
 
+[[nodiscard]] static auto valid_keys(const auto keys) -> std::vector<std::string>
+{
+    constexpr static auto TO_IGNORE = { "schedule_policy" };
+
+    // clang-format off
+    return keys
+        | std::views::filter([&](const auto& elem) { return !std::ranges::contains(TO_IGNORE, elem); })
+        | std::ranges::to<std::vector<std::string>>();
+    // clang-format on
+}
+
+[[nodiscard]] static auto group_tables_by_keys(const std::span<const Table> tables)
+  -> std::unordered_map<std::string, std::vector<double>>
+{
+    std::unordered_map<std::string, std::vector<double>> result;
+
+    const auto keys = valid_keys(tables.front() | std::views::keys);
+    for (const auto& key : keys) {
+        std::vector<double> values;
+        for (const auto& table : tables) {
+            const auto parse_result = try_parse_string_as_double(table.at(key));
+            assert(parse_result.has_value() && "unreachable");
+            values.push_back(parse_result.value());
+        }
+
+        result.emplace(key, values);
+    }
+
+    return result;
+}
+
+static void draw_bar_charts(const std::span<const std::string> labels, const auto& values)
+{
+    const auto keys = valid_keys(values | std::views::keys);
+
+    auto plot_opts = Gui::Plotting::PlotOpts {
+        .x_axis_flags = Gui::Plotting::AxisFlags::AutoFit | Gui::Plotting::AxisFlags::NoTickLabels
+                        | Gui::Plotting::AxisFlags::NoTickMarks,
+        .y_axis_flags = Gui::Plotting::AxisFlags::AutoFit,
+        .x_min        = -0.5,
+        .x_max        = static_cast<double>(labels.size()) - 0.5,
+        .y_min        = std::nullopt,
+        .y_max        = std::nullopt,
+        .x_label      = std::nullopt,
+        .y_label      = std::nullopt,
+        .color        = std::nullopt,
+        .line_weight  = std::nullopt,
+        .can_scroll   = false,
+    };
+
+    Gui::Plotting::subplots(
+      "##HistogramPlots",
+      keys.size(),
+      ImGui::GetContentRegionAvail(),
+      Gui::Plotting::SubplotFlags::None,
+      [&] {
+          std::ranges::for_each(keys, [&](const auto& key) {
+              plot_opts.y_max = std::ranges::max(values.at(key)) * 1.1;
+              Gui::Plotting::plot(key, ImVec2(0, 0), plot_opts, [&] { Gui::Plotting::bars(labels, values.at(key)); });
+          });
+      }
+    );
+}
+
 static void usage(const char* executable) { std::println("{}: (<file1.met> <file2.met>)+", executable); }
 
 auto main(int argc, const char** argv) -> int
@@ -89,11 +153,16 @@ auto main(int argc, const char** argv) -> int
     std::vector<std::filesystem::path> file_paths;
     for (const auto& arg : args | std::views::drop(1)) { file_paths.emplace_back(arg); }
 
+    std::vector<std::string> file_stems;
+    for (const auto& file_path : file_paths) { file_stems.push_back(file_path.stem().string()); }
+
     const auto file_contents = read_files(file_paths);
     if (!file_contents || file_contents->size() < 2) { return 1; }
 
     const auto tables = tables_from_file_contents(file_contents.value());
     if (!tables) { return 1; }
+
+    const auto grouped = group_tables_by_keys(tables.value());
 
     const auto maybe_window = Gui::init_window("sim-os: comparator", 1920, 1080);
     if (!maybe_window) { return 1; }
@@ -119,83 +188,7 @@ auto main(int argc, const char** argv) -> int
         Gui::window(
           "sim-os: comparator",
           Gui::WindowFlags::NoDecoration | Gui::WindowFlags::NoResize | Gui::WindowFlags::NoMove,
-          [&] {
-              Gui::group([&] {
-                  Gui::child("##HistogramChild", Gui::ChildFlags::Border, Gui::WindowFlags::None, [&] {
-                      Gui::Plotting::PlotOpts plot_opts = {
-                          .x_axis_flags = Gui::Plotting::AxisFlags::AutoFit | Gui::Plotting::AxisFlags::NoTickLabels
-                                          | Gui::Plotting::AxisFlags::NoTickMarks,
-                          .y_axis_flags = Gui::Plotting::AxisFlags::AutoFit,
-                          .x_min        = -0.5,
-                          .x_max        = static_cast<double>(tables->size()) - 0.5,
-                          .y_min        = std::nullopt,
-                          .y_max        = std::nullopt,
-                          .x_label      = std::nullopt,
-                          .y_label      = std::nullopt,
-                          .color        = std::nullopt,
-                          .line_weight  = std::nullopt,
-                          .can_scroll   = false,
-
-                      };
-                      constexpr static auto TO_IGNORE = { "schedule_policy" };
-                      auto keys = std::views::filter(tables.value().front() | std::views::keys, [](const auto& elem) {
-                          return !std::ranges::contains(TO_IGNORE, elem);
-                      });
-
-                      const auto keys_count = std::ranges::distance(keys);
-                      const auto cols       = static_cast<int>(std::ceil(std::sqrt(keys_count)));
-                      const auto rows =
-                        static_cast<int>(std::ceil(static_cast<double>(keys_count) / static_cast<double>(cols)));
-
-                      ImPlot::BeginSubplots("##HistogramSubplots", rows, cols, ImGui::GetContentRegionAvail(), 0);
-
-                      for (const auto& key : keys) {
-                          std::vector<double> values;
-                          for (const auto& table : *tables) {
-                              const auto parse_result = try_parse_string_as_double(table.at(key));
-                              assert(parse_result.has_value() && "unreachable");
-                              values.push_back(parse_result.value());
-                          }
-
-                          plot_opts.y_max = std::ranges::max(values) * 1.1;
-
-                          Gui::Plotting::plot(key, ImVec2(0, 0), plot_opts, [&] {
-                              ImPlot::SetupLegend(ImPlotLocation_NorthWest);
-
-                              std::vector<std::string> labels;
-                              for (const auto& file_path : file_paths) { labels.push_back(file_path.stem().string()); }
-
-                              std::vector<const char*> labels_cstr;
-                              for (const auto& label : labels) { labels_cstr.push_back(label.c_str()); }
-
-                              std::vector<double> positions {};
-                              positions.reserve(tables->size());
-                              for (std::size_t pos = 0; pos < tables->size(); ++pos) {
-                                  positions.push_back(static_cast<double>(pos));
-                              }
-
-                              constexpr static auto BAR_WIDTH = 0.2F;
-                              ImPlot::SetupAxisTicks(
-                                ImAxis_X1, positions.data(), static_cast<int>(positions.size()), nullptr
-                              );
-
-                              const auto coordinates = std::views::zip(positions, values);
-                              for (const auto& [idx, coords] : std::views::zip(std::views::iota(0UL), coordinates)) {
-                                  const auto& [x, y] = coords;
-                                  ImPlot::PushStyleColor(
-                                    ImPlotCol_Fill,
-                                    ImPlot::GetColormapColor(static_cast<int>(idx) % ImPlot::GetColormapSize())
-                                  );
-                                  ImPlot::PlotBars(labels_cstr[idx], &x, &y, 1, BAR_WIDTH);
-                                  ImPlot::PopStyleColor();
-                              }
-                          });
-                      }
-
-                      ImPlot::EndSubplots();
-                  });
-              });
-          }
+          [&] { draw_bar_charts(file_stems, grouped); }
         );
 
         Gui::draw_call(window, ImVec4(.96F, .96F, .96F, 1.0F));
