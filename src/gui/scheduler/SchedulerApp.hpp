@@ -20,7 +20,7 @@ class [[nodiscard]] SchedulerApp final
   public:
     constexpr static auto WINDOW_WIDTH     = 1920;
     constexpr static auto WINDOW_HEIGHT    = 1080;
-    constexpr static auto BACKGROUND_COLOR = ImVec4(0.94F, 0.94F, 0.94F, 1.0F);
+    constexpr static auto BACKGROUND_COLOR = Gui::hex_colour_to_imvec4(0x181818);
     constexpr static auto BUTTON_SIZE      = ImVec2(16, 16);
     constexpr static auto PLOT_HISTORY     = 10.0F;
 
@@ -31,9 +31,8 @@ class [[nodiscard]] SchedulerApp final
         if (!window) { return nullptr; }
         ImPlot::CreateContext();
 
-        auto& io = ImGui::GetIO();
-        io.Fonts->Clear();
-        io.FontDefault = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0F);
+        Gui::load_default_fonts();
+        Gui::black_and_red_style();
 
         return std::unique_ptr<SchedulerApp>(new SchedulerApp { *window, sim });
     }
@@ -372,9 +371,7 @@ class [[nodiscard]] SchedulerApp final
             plot_opts.y_max = max_throughput;
 
             Gui::Plotting::plot("##ThroughputPlot", remaining_size, plot_opts, [&] {
-                Gui::Plotting::line(
-                  "throughput", throughput_buffer, Gui::Plotting::LineFlags::None
-                );
+                Gui::Plotting::line("throughput", throughput_buffer, Gui::Plotting::LineFlags::None);
             });
         });
     }

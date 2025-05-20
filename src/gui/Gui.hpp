@@ -32,12 +32,54 @@ namespace Gui
 
 constexpr static auto GLSL_VERSION = "#version 330";
 
-auto hex_colour_to_imvec4(int hexValue, float alpha = 1.0F) -> ImVec4
+constexpr static auto hex_colour_to_imvec4(const int hexValue, const float alpha = 1.0F) -> ImVec4
 {
     auto r = static_cast<float>(((hexValue >> 16) & 0xFF)) / 255.0F;
     auto g = static_cast<float>(((hexValue >> 8) & 0xFF)) / 255.0F;
     auto b = static_cast<float>((hexValue & 0xFF)) / 255.0F;
     return { r, g, b, alpha };
+}
+
+constexpr static void black_and_red_style()
+{
+    constexpr static auto BG_COLOUR = Gui::hex_colour_to_imvec4(0x181818);
+
+    constexpr static auto ACCENT         = Gui::hex_colour_to_imvec4(0xE63946);
+    constexpr static auto ACCENT_HOVERED = Gui::hex_colour_to_imvec4(0xD62828);
+    constexpr static auto ACCENT_ACTIVE  = Gui::hex_colour_to_imvec4(0xFF4C4C);
+
+    auto& style             = ImGui::GetStyle();
+    style.WindowRounding    = 5.3F;
+    style.FrameRounding     = 2.3F;
+    style.ScrollbarRounding = 0;
+
+    style.Colors[ImGuiCol_FrameBg] = BG_COLOUR;
+    style.Colors[ImGuiCol_ChildBg] = BG_COLOUR;
+
+    style.Colors[ImGuiCol_TitleBg]       = ACCENT;
+    style.Colors[ImGuiCol_TitleBgActive] = ACCENT_ACTIVE;
+
+    style.Colors[ImGuiCol_Header]        = ACCENT;
+    style.Colors[ImGuiCol_HeaderHovered] = ACCENT_HOVERED;
+    style.Colors[ImGuiCol_HeaderActive]  = ACCENT_ACTIVE;
+
+    style.Colors[ImGuiCol_Button]        = ACCENT;
+    style.Colors[ImGuiCol_ButtonHovered] = ACCENT_HOVERED;
+    style.Colors[ImGuiCol_ButtonActive]  = ACCENT_ACTIVE;
+}
+
+static ImFont* regular_font;
+static ImFont* bold_font;
+
+void load_default_fonts(const float regular_size = 14.0F, const float bold_size = 16.0F)
+{
+    auto& io = ImGui::GetIO();
+    io.Fonts->Clear();
+
+    regular_font   = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", regular_size);
+    io.FontDefault = regular_font;
+
+    bold_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", bold_size);
 }
 
 
@@ -129,11 +171,13 @@ void title(const std::string& title, const ImVec2& child_size, Callback&& callba
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBgActive));
     ImGui::BeginChild(std::format("{}_title", title).c_str(), title_size, 0);
+    ImGui::PushFont(bold_font);
 
     ImGui::SetCursorPosX(8.0F);
     ImGui::SetCursorPosY((title_height - ImGui::GetTextLineHeight()) * 0.5F);
     ImGui::TextUnformatted(title.c_str());
 
+    ImGui::PopFont();
     ImGui::EndChild();
     ImGui::PopStyleColor();
 
@@ -660,6 +704,7 @@ void plot(const std::string& title, const ImVec2& size, const PlotOpts& opts, Ca
 
         if (opts.line_weight) { ImPlot::PopStyleVar(); }
         if (opts.color) { ImPlot::PopStyleColor(); }
+
         ImPlot::EndPlot();
     }
 
@@ -699,7 +744,7 @@ enum class SubplotFlags : std::uint8_t
     return static_cast<SubplotFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
 }
 
-template<std::invocable Callback>
+template<std::invocable<std::size_t, std::size_t, ImVec2> Callback>
 void subplots(
   const std::string&       title,
   const std::integral auto count,
@@ -708,11 +753,12 @@ void subplots(
   Callback&&               callback
 )
 {
-    const auto cols = static_cast<int>(std::ceil(std::sqrt(count)));
-    const auto rows = static_cast<int>(std::ceil(static_cast<double>(count) / static_cast<double>(cols)));
+    const auto cols         = static_cast<int>(std::ceil(std::sqrt(count)));
+    const auto rows         = static_cast<int>(std::ceil(static_cast<double>(count) / static_cast<double>(cols)));
+    const auto subplot_size = Gui::grid_layout_calc_size(rows, cols, size);
 
     ImPlot::BeginSubplots(title.c_str(), rows, cols, size, std::to_underlying(flags));
-    std::invoke(std::forward<Callback>(callback));
+    std::invoke(std::forward<Callback>(callback), rows, cols, subplot_size);
     ImPlot::EndSubplots();
 }
 

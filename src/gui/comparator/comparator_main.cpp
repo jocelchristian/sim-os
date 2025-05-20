@@ -145,11 +145,28 @@ static void draw_bar_charts(const std::span<const std::string> labels, const aut
       keys.size(),
       ImGui::GetContentRegionAvail(),
       Gui::Plotting::SubplotFlags::None,
-      [&] {
-          std::ranges::for_each(keys, [&](const auto& key) {
-              plot_opts.y_max = std::ranges::max(values.at(key)) * 1.1;
-              Gui::Plotting::plot(key, ImVec2(0, 0), plot_opts, [&] { Gui::Plotting::bars(labels, values.at(key)); });
-          });
+      [&](const std::size_t rows, const std::size_t cols, const auto& subplot_size) {
+          std::size_t idx = 0;
+          for (std::size_t row = 0; row < rows; ++row) {
+              for (std::size_t col = 0; col < cols; ++col) {
+                  if (idx >= keys.size()) { break; }
+
+                  const auto& key = keys[idx];
+                  plot_opts.y_max = std::ranges::max(values.at(key)) * 1.1;
+                  Gui::group([&] {
+                      Gui::title(key, subplot_size, [&](const auto& remaining_size) {
+                          Gui::child(key, remaining_size, Gui::ChildFlags::Border, Gui::WindowFlags::None, [&] {
+                              Gui::Plotting::plot(std::format("##{}", key), ImVec2(0, 0), plot_opts, [&] {
+                                  Gui::Plotting::bars(labels, values.at(key));
+                              });
+                          });
+                      });
+                  });
+
+                  if (col < cols - 1 && idx + 1 < keys.size()) { ImGui::SameLine(); }
+                  ++idx;
+              }
+          }
       }
     );
     ImPlot::PopStyleColor();
@@ -185,9 +202,8 @@ auto main(int argc, const char** argv) -> int
 
     ImPlot::CreateContext();
 
-    auto& io = ImGui::GetIO();
-    io.Fonts->Clear();
-    io.FontDefault = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14.0F);
+    Gui::load_default_fonts();
+    Gui::black_and_red_style();
 
     bool quit = false;
     while (!quit) {
@@ -206,7 +222,7 @@ auto main(int argc, const char** argv) -> int
           [&] { draw_bar_charts(file_stems, grouped); }
         );
 
-        Gui::draw_call(window, ImVec4(.96F, .96F, .96F, 1.0F));
+        Gui::draw_call(window, Gui::hex_colour_to_imvec4(0x181818));
     }
 
     ImPlot::DestroyContext();
