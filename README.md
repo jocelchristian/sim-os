@@ -41,9 +41,6 @@ You will then find the following executables inside the build directory:
 ## scheduler
 ![image](https://github.com/user-attachments/assets/c4a851fe-b33f-4cb6-b3cc-1e5e56335df0)
 
-
-
-
 This is a scheduler simulator. It expects you to give it a file to a simulation described in the custom simulation description language. See [sim-lang](#sim-lang) for more info.
 
 These are the currently features that the scheduler supports:
