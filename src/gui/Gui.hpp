@@ -575,6 +575,46 @@ void toast(
     });
 }
 
+[[nodiscard]] static auto rows_cols_by_count(const std::integral auto count) -> std::pair<std::size_t, std::size_t>
+{
+    const auto cols = static_cast<int>(std::ceil(std::sqrt(count)));
+    const auto rows = static_cast<int>(std::ceil(static_cast<double>(count) / static_cast<double>(cols)));
+    return { rows, cols };
+}
+
+template<std::invocable<ImVec2, std::size_t> Callback>
+void grid(
+  const std::integral auto rows,
+  const std::integral auto cols,
+  const std::integral auto count,
+  const ImVec2&            size,
+  Callback&&               callback
+)
+{
+    Gui::group([&] {
+        std::size_t idx = 0;
+        for (std::size_t row = 0; row < rows; ++row) {
+            for (std::size_t col = 0; col < cols; ++col) {
+                if (idx >= count) { break; }
+
+                const auto remaining_size = Gui::grid_layout_calc_size(rows, cols, size);
+                std::invoke(std::forward<Callback>(callback), remaining_size, idx);
+
+                if (col < cols - 1 && idx + 1 < count) { ImGui::SameLine(); }
+                ++idx;
+            }
+        }
+    });
+}
+
+
+template<std::invocable<ImVec2, std::size_t> Callback>
+void grid(const std::integral auto count, const ImVec2& size, Callback&& callback)
+{
+    const auto [rows, cols] = rows_cols_by_count(count);
+    Gui::grid(rows, cols, count, size, std::forward<Callback>(callback));
+}
+
 namespace Plotting
 {
 
@@ -744,7 +784,7 @@ enum class SubplotFlags : std::uint8_t
     return static_cast<SubplotFlags>(std::to_underlying(lhs) | std::to_underlying(rhs));
 }
 
-template<std::invocable<std::size_t, std::size_t, ImVec2> Callback>
+template<std::invocable<ImVec2> Callback>
 void subplots(
   const std::string&       title,
   const std::integral auto count,
@@ -753,12 +793,12 @@ void subplots(
   Callback&&               callback
 )
 {
-    const auto cols         = static_cast<int>(std::ceil(std::sqrt(count)));
-    const auto rows         = static_cast<int>(std::ceil(static_cast<double>(count) / static_cast<double>(cols)));
-    const auto subplot_size = Gui::grid_layout_calc_size(rows, cols, size);
+    const auto [rows, cols] = rows_cols_by_count(count);
 
-    ImPlot::BeginSubplots(title.c_str(), rows, cols, size, std::to_underlying(flags));
-    std::invoke(std::forward<Callback>(callback), rows, cols, subplot_size);
+    ImPlot::BeginSubplots(
+      title.c_str(), static_cast<int>(rows), static_cast<int>(cols), size, std::to_underlying(flags)
+    );
+    Gui::grid(rows, cols, count, size, std::forward<Callback>(callback));
     ImPlot::EndSubplots();
 }
 

@@ -140,35 +140,21 @@ static void draw_bar_charts(const std::span<const std::string> labels, const aut
     };
 
     ImPlot::PushStyleColor(ImPlotCol_FrameBg, Gui::hex_colour_to_imvec4(0x181818));
-    Gui::Plotting::subplots(
-      "##HistogramPlots",
-      keys.size(),
-      ImGui::GetContentRegionAvail(),
-      Gui::Plotting::SubplotFlags::None,
-      [&](const std::size_t rows, const std::size_t cols, const auto& subplot_size) {
-          std::size_t idx = 0;
-          for (std::size_t row = 0; row < rows; ++row) {
-              for (std::size_t col = 0; col < cols; ++col) {
-                  if (idx >= keys.size()) { break; }
 
-                  const auto& key = keys[idx];
-                  plot_opts.y_max = std::ranges::max(values.at(key)) * 1.1;
-                  Gui::group([&] {
-                      Gui::title(key, subplot_size, [&](const auto& remaining_size) {
-                          Gui::child(key, remaining_size, Gui::ChildFlags::Border, Gui::WindowFlags::None, [&] {
-                              Gui::Plotting::plot(std::format("##{}", key), ImVec2(0, 0), plot_opts, [&] {
-                                  Gui::Plotting::bars(labels, values.at(key));
-                              });
-                          });
-                      });
-                  });
+    Gui::grid(keys.size(), ImGui::GetContentRegionAvail(), [&](const auto& subplot_size, const auto& idx) {
+        const auto& key = keys[idx];
+        plot_opts.y_max = std::ranges::max(values.at(key)) * 1.1;
+        Gui::group([&] {
+            Gui::title(key, subplot_size, [&](const auto& remaining_size) {
+                Gui::child(key, remaining_size, Gui::ChildFlags::Border, Gui::WindowFlags::NoScrollbar, [&] {
+                    Gui::Plotting::plot(std::format("##{}", key), ImGui::GetContentRegionAvail(), plot_opts, [&] {
+                        Gui::Plotting::bars(labels, values.at(key));
+                    });
+                });
+            });
+        });
+    });
 
-                  if (col < cols - 1 && idx + 1 < keys.size()) { ImGui::SameLine(); }
-                  ++idx;
-              }
-          }
-      }
-    );
     ImPlot::PopStyleColor();
 }
 
