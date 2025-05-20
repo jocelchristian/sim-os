@@ -17,16 +17,12 @@ auto main(int argc, const char** argv) -> int
     if (!maybe_script_content) { return 1; }
 
     using namespace Simulations;
-    const auto schedule_policy = FirstComeFirstServedPolicy {};
-    using SchedulePolicyType = decltype(schedule_policy);
-
-    auto sim = std::make_shared<Scheduler<SchedulePolicyType>>(schedule_policy);
-
-    if (!Interpreter::Interpreter<Scheduler<SchedulePolicyType>>::eval(*maybe_script_content, sim)) {
+    auto sim = std::make_shared<Scheduler>(named_scheduler_from_policy(SchedulePolicy::RoundRobin));
+    if (!Interpreter::Interpreter<Scheduler>::eval(*maybe_script_content, sim)) {
         std::println(stderr, "[ERROR] Could not correctly evaluate script {}", script_path);
     }
 
-    auto app = SchedulerApp<SchedulePolicyType>::create(sim);
+    auto app = SchedulerApp::create(sim);
     if (!app) { return 1; }
     app->render();
 }

@@ -10,12 +10,12 @@
 #include <implot.h>
 
 #include <stb_image.h>
+#include <utility>
 
 #include "gui/Gui.hpp"
 #include "os/Os.hpp"
 #include "simulations/Scheduler.hpp"
 
-template<typename SchedulePolicy>
 class [[nodiscard]] SchedulerApp final
 {
   public:
@@ -76,6 +76,10 @@ class [[nodiscard]] SchedulerApp final
 
                   draw_control_buttons();
 
+                  ImGui::SameLine();
+
+                  draw_scheduler_policy_picker();
+
                   const std::array<Gui::IndexGridCallback, 6> drawables = {
                       [&](const auto& size) { draw_process_queue("Ready", std::views::join(sim->ready), size); },
                       [&](const auto& size) { draw_process_queue("Waiting", std::views::join(sim->waiting), size); },
@@ -108,7 +112,7 @@ class [[nodiscard]] SchedulerApp final
                 };
 
                 draw_key_value("Timer", sim->timer);
-                draw_key_value("Scheduler Policy", SchedulePolicy::POLICY_NAME);
+                draw_key_value("Scheduler Policy", sim->schedule_policy.name());
             });
 
             ImGui::Separator();
@@ -120,7 +124,7 @@ class [[nodiscard]] SchedulerApp final
                 };
 
                 const auto calculate_size = [](const auto& queues) -> std::size_t {
-                    return std::accumulate(queues.begin(), queues.end(), 0, [](const auto& acc, const auto& queue) {
+                    return std::accumulate(queues.begin(), queues.end(), 0UL, [](const auto& acc, const auto& queue) {
                         return acc + queue.size();
                     });
                 };
@@ -193,7 +197,7 @@ class [[nodiscard]] SchedulerApp final
 
             std::stringstream ss;
             ss << std::format("timer = {}\n", sim->timer);
-            ss << std::format("schedule_policy = {}\n", SchedulePolicy::POLICY_NAME);
+            ss << std::format("schedule_policy = {}\n", sim->schedule_policy.name());
 
             ss << "separator\n";
 
@@ -255,6 +259,17 @@ class [[nodiscard]] SchedulerApp final
 
         Gui::image_button(next_texture, BUTTON_SIZE, "Next", [this] {
             if (!sim->complete()) { sim->step(); }
+        });
+    }
+
+    void draw_scheduler_policy_picker()
+    {
+        constexpr static auto ITEMS =
+          std::array<Simulations::SchedulePolicy, 2> { Simulations::SchedulePolicy::RoundRobin,
+                                                       Simulations::SchedulePolicy::FirstComeFirstServed };
+
+        Gui::combo("##SchedulePolicyPicker", std::span(ITEMS.begin(), ITEMS.end()), [&](const auto& selected) {
+            sim->switch_schedule_policy(Simulations::named_scheduler_from_policy(selected));
         });
     }
 
@@ -455,7 +470,7 @@ class [[nodiscard]] SchedulerApp final
     SchedulerApp& operator=(SchedulerApp&&)      = delete;
 
   private:
-    explicit SchedulerApp(GLFWwindow* window, const std::shared_ptr<Simulations::Scheduler<SchedulePolicy>>& sim)
+    explicit SchedulerApp(GLFWwindow* window, const std::shared_ptr<Simulations::Scheduler>& sim)
       : window { window },
         sim { sim },
         restart_texture { Gui::Texture::load_from_file("resources/restart.png") },
@@ -465,21 +480,21 @@ class [[nodiscard]] SchedulerApp final
     {}
 
   private:
-    GLFWwindow*                                             window = nullptr;
-    bool                                                    quit   = false;
-    std::shared_ptr<Simulations::Scheduler<SchedulePolicy>> sim;
-    bool                                                    should_finish      = false;
-    bool                                                    stepped_this_frame = false;
-    Gui::Texture                                            restart_texture;
-    Gui::Texture                                            play_texture;
-    Gui::Texture                                            next_texture;
-    Gui::Texture                                            save_texture;
-    float                                                   delta_time = 0.0F;
-    Gui::Plotting::RingBuffer                               cpu_usage_buffer;
-    Gui::Plotting::RingBuffer                               average_waiting_time_buffer;
-    std::size_t                                             max_waiting_time = 0;
-    Gui::Plotting::RingBuffer                               average_turnaround_time_buffer;
-    std::size_t                                             max_turnaround_time = 0;
-    Gui::Plotting::RingBuffer                               throughput_buffer;
-    double                                                  max_throughput = 0;
+    GLFWwindow*                             window = nullptr;
+    bool                                    quit   = false;
+    std::shared_ptr<Simulations::Scheduler> sim;
+    bool                                    should_finish      = false;
+    bool                                    stepped_this_frame = false;
+    Gui::Texture                            restart_texture;
+    Gui::Texture                            play_texture;
+    Gui::Texture                            next_texture;
+    Gui::Texture                            save_texture;
+    float                                   delta_time = 0.0F;
+    Gui::Plotting::RingBuffer               cpu_usage_buffer;
+    Gui::Plotting::RingBuffer               average_waiting_time_buffer;
+    std::size_t                             max_waiting_time = 0;
+    Gui::Plotting::RingBuffer               average_turnaround_time_buffer;
+    std::size_t                             max_turnaround_time = 0;
+    Gui::Plotting::RingBuffer               throughput_buffer;
+    double                                  max_throughput = 0;
 };

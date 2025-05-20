@@ -1,15 +1,78 @@
 #pragma once
 
 #include <cstddef>
+#include <format>
+#include <functional>
 #include <limits>
 #include <memory>
+#include <utility>
 
 #include "os/Os.hpp"
 
 namespace Simulations
 {
 
-template<typename SchedulePolicy>
+struct Scheduler;
+
+using ScheduleFn = std::function<void(Scheduler&)>;
+
+enum class SchedulePolicy : std::uint8_t
+{
+    FirstComeFirstServed = 0,
+    RoundRobin,
+    Count,
+};
+
+} // namespace Simulations
+
+template<>
+struct std::formatter<Simulations::SchedulePolicy>
+{
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+
+    auto format(Simulations::SchedulePolicy policy, auto& ctx) const
+    {
+        const auto visitor = [](Simulations::SchedulePolicy policy) {
+            switch (policy) {
+                case Simulations::SchedulePolicy::FirstComeFirstServed: {
+                    return "First Come First Served";
+                }
+                case Simulations::SchedulePolicy::RoundRobin: {
+                    return "Round Robin";
+                }
+                default: {
+                    assert(false && "unreachable");
+                }
+            }
+        };
+
+        return std::format_to(ctx.out(), "{}", visitor(policy));
+    }
+};
+
+namespace Simulations
+{
+
+struct [[nodiscard]] NamedSchedulePolicy final
+{
+    NamedSchedulePolicy(std::string name, SchedulePolicy kind, ScheduleFn callback)
+      : callback_ { std::move(callback) },
+        kind_ { kind },
+        name_ { std::move(name) }
+    {}
+
+    void operator()(Scheduler& sim) { callback_(sim); };
+
+    [[nodiscard]] auto name() const -> std::string { return name_; }
+    [[nodiscard]] auto kind() const -> SchedulePolicy { return kind_; }
+
+  private:
+    ScheduleFn     callback_;
+    SchedulePolicy kind_;
+    std::string    name_;
+};
+
+
 struct [[nodiscard]] Scheduler final
 {
     constexpr static auto MAX_THREADS = 9;
@@ -22,7 +85,7 @@ struct [[nodiscard]] Scheduler final
     std::array<ProcessQueue, MAX_THREADS> waiting;
     std::array<ProcessQueue, MAX_THREADS> ready;
 
-    SchedulePolicy                 schedule_policy;
+    NamedSchedulePolicy            schedule_policy;
     std::size_t                    timer     = 0;
     std::array<float, MAX_THREADS> cpu_usage = {};
 
@@ -53,6 +116,8 @@ struct [[nodiscard]] Scheduler final
 
     Scheduler(Scheduler&&) noexcept            = default;
     Scheduler& operator=(Scheduler&&) noexcept = default;
+
+    void switch_schedule_policy(std::invocable<Scheduler&> auto policy) { schedule_policy = std::move(policy); }
 
     void restart()
     {
@@ -279,10 +344,7 @@ struct [[nodiscard]] Scheduler final
 
 struct [[nodiscard]] FirstComeFirstServedPolicy final
 {
-    constexpr static auto POLICY_NAME = "First Come First Served";
-
-    template<typename T>
-    void operator()(Scheduler<T>& sim) const
+    void operator()(Scheduler& sim) const
     {
         for (std::size_t thread_idx = 0; thread_idx < sim.threads_count; ++thread_idx) {
             auto& ready = sim.ready[thread_idx];
@@ -297,10 +359,7 @@ struct [[nodiscard]] FirstComeFirstServedPolicy final
 
 struct [[nodiscard]] RoundRobinPolicy final
 {
-    constexpr static auto POLICY_NAME = "Round Robin";
-
-    template<typename T>
-    void operator()(Scheduler<T>& sim) const
+    void operator()(Scheduler& sim) const
     {
         for (std::size_t thread_idx = 0; thread_idx < sim.threads_count; ++thread_idx) {
             auto& ready = sim.ready[thread_idx];
@@ -330,5 +389,48 @@ struct [[nodiscard]] RoundRobinPolicy final
 
     std::size_t quantum = 5;
 };
+
+[[nodiscard]] constexpr static auto policy_name_from_kind(SchedulePolicy policy) -> std::string
+{
+    static_assert(
+      std::to_underlying(SchedulePolicy::Count) == 2,
+      "Exhaustive handling for all enum variants for SchedulePolicy is required"
+    );
+
+    switch (policy) {
+        case SchedulePolicy::FirstComeFirstServed: {
+            return "First Come First Served";
+        }
+        case SchedulePolicy::RoundRobin: {
+            return "Round Robin";
+        }
+        default: {
+            assert(false && "unreachable");
+        }
+    }
+}
+
+template<typename... PolicyArgs>
+[[nodiscard]] constexpr static auto named_scheduler_from_policy(SchedulePolicy policy, PolicyArgs&&... args)
+{
+    static_assert(
+      std::to_underlying(SchedulePolicy::Count) == 2,
+      "Exhaustive handling for all enum variants for SchedulePolicy is required"
+    );
+
+    const auto name = std::format("{}", policy);
+    switch (policy) {
+        case SchedulePolicy::FirstComeFirstServed: {
+            return NamedSchedulePolicy(name, policy, FirstComeFirstServedPolicy {});
+        }
+        case SchedulePolicy::RoundRobin: {
+            return NamedSchedulePolicy(name, policy, RoundRobinPolicy { std::forward<PolicyArgs>(args)... });
+        }
+        default: {
+            assert(false && "unreachable");
+        }
+    }
+}
+
 
 } // namespace Simulations

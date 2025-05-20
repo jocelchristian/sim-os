@@ -1,5 +1,6 @@
 #pragma once
 
+#include <any>
 #include <chrono>
 #include <filesystem>
 #include <format>
@@ -8,6 +9,7 @@
 #include <print>
 #include <ranges>
 #include <span>
+#include <typeindex>
 
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -17,6 +19,7 @@
 #include <imgui_internal.h>
 #include <implot.h>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -674,6 +677,73 @@ auto input_text_popup(const std::string& label, bool& condition) -> std::optiona
     return std::nullopt;
 }
 
+class [[nodiscard]] ComboManager final
+{
+  public:
+    template<typename Enum>
+    static void register_combo_by_id(const ImGuiID id, const std::uint8_t default_index = 0)
+      requires(std::is_scoped_enum_v<Enum>)
+    {
+        auto key = std::make_pair(std::type_index(typeid(Enum)), id);
+        if (!states.contains(key)) { states[key] = default_index; }
+    }
+
+    template<typename Enum>
+    [[nodiscard]] static auto selected_variant_by_id(const ImGuiID id)
+      -> std::uint8_t& requires(std::is_scoped_enum_v<Enum>)
+    {
+        auto key = std::make_pair(std::type_index(typeid(Enum)), id);
+        return std::any_cast<std::uint8_t&>(states[key]);
+    }
+
+  private:
+    using Key = std::pair<std::type_index, ImGuiID>;
+    struct KeyHash
+    {
+        [[nodiscard]] auto operator()(const Key& key) const -> std::size_t
+        {
+            return std::hash<std::type_index> {}(key.first) ^ std::hash<ImGuiID> {}(key.second);
+        }
+    };
+
+    inline static std::unordered_map<Key, std::any, KeyHash> states;
+};
+
+template<typename Enum, std::invocable<Enum> Callback>
+void combo(const std::string& name, const std::span<const Enum> values, Callback&& callback)
+  requires(std::is_scoped_enum_v<Enum>)
+{
+    const auto id = ImGui::GetID(name.c_str());
+    ComboManager::register_combo_by_id<Enum>(id);
+    auto& selected_idx = ComboManager::selected_variant_by_id<Enum>(id);
+
+    float max_value_length = 0;
+    for (std::size_t idx = 0; idx < values.size(); ++idx) {
+        const auto variant = values[idx];
+        const auto name    = std::format("{}", variant);
+        max_value_length   = std::max(max_value_length, ImGui::CalcTextSize(name.c_str()).x);
+    }
+
+    const auto total_width = max_value_length + ImGui::GetFrameHeight() + (ImGui::GetStyle().FramePadding.x * 2.0F);
+
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - total_width);
+    ImGui::SetNextItemWidth(total_width);
+    if (ImGui::BeginCombo("##Schedule Policy", std::format("{}", values[selected_idx]).c_str())) {
+        for (std::size_t idx = 0; idx < values.size(); ++idx) {
+            const auto variant     = values[idx];
+            bool       is_selected = (selected_idx == idx);
+
+            if (ImGui::Selectable(std::format("{}", variant).c_str(), is_selected)) {
+                selected_idx = static_cast<std::uint8_t>(idx);
+                std::invoke(std::forward<Callback>(callback), variant);
+            }
+
+            if (is_selected) { ImGui::SetItemDefaultFocus(); }
+        }
+        ImGui::EndCombo();
+    }
+}
+
 namespace Plotting
 {
 
@@ -697,10 +767,7 @@ class [[nodiscard]] RingBuffer final
         cursor       = (cursor + 1) % capacity;
     }
 
-    void clear()
-    {
-        data.clear();
-    }
+    void clear() { data.clear(); }
 
     [[nodiscard]] auto operator[](const int index) const -> const ImVec2& { return data[index]; }
 
