@@ -66,6 +66,8 @@ constexpr static void black_and_red_style()
     style.Colors[ImGuiCol_Button]        = ACCENT;
     style.Colors[ImGuiCol_ButtonHovered] = ACCENT_HOVERED;
     style.Colors[ImGuiCol_ButtonActive]  = ACCENT_ACTIVE;
+
+    style.Colors[ImGuiCol_TableHeaderBg] = ACCENT_ACTIVE;
 }
 
 static ImFont* regular_font;
