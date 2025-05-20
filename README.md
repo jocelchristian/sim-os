@@ -68,6 +68,7 @@ Supported features:
 - Specify the max duration of a single event
 - Specify the max arrival time for a process from the start of the timer
 - Spawn random processes or custom processes
+- Restarting the simulation from the beginning
 
 ### Examples
 For some examples on the syntax of the language checkout [examples](examples).
