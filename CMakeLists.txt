@@ -68,9 +68,10 @@ target_compile_options(scheduler
         -Werror
         -Wconversion
         -Wno-maybe-uninitialized
-        $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
+        # $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
+        $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer>
         $<$<CONFIG:Release>: -O3>)
-target_link_options(scheduler PRIVATE $<$<CONFIG:Debug>: -fsanitize=address>)
+# target_link_options(scheduler PRIVATE $<$<CONFIG:Debug>: -fsanitize=address>)
 
 
 add_executable(
@@ -88,6 +89,7 @@ target_compile_options(comparator
         -Wextra
         -Werror
         -Wconversion
-        $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
+        # $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
+        $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer>
         $<$<CONFIG:Release>: -O3>)
 target_link_options(comparator PRIVATE $<$<CONFIG:Debug>: -fsanitize=address>)

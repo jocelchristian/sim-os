@@ -216,7 +216,7 @@ class [[nodiscard]] SchedulerApp final
         if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) { show_input_box = true; }
 
         Gui::enabled_if(sim->complete(), [&] {
-            Gui::image_button(save_texture, BUTTON_SIZE, "Save", [&] { show_input_box = true; });
+            Gui::image_button(save_texture, BUTTON_SIZE, "Save Results", [&] { show_input_box = true; });
         });
     }
 
@@ -225,7 +225,25 @@ class [[nodiscard]] SchedulerApp final
         constexpr static auto BUTTONS_COUNT = 3;
         Gui::center_content_horizontally(BUTTON_SIZE.x * BUTTONS_COUNT);
 
-        Gui::image_button(previous_texture, BUTTON_SIZE, "Previous", [] {});
+        const auto restart_callback = [this] {
+            sim->restart();
+            should_finish      = false;
+            stepped_this_frame = false;
+            delta_time         = 0.0F;
+            cpu_usage_buffer.clear();
+            average_waiting_time_buffer.clear();
+            max_waiting_time = 0;
+            average_turnaround_time_buffer.clear();
+            max_turnaround_time = 0;
+            cpu_usage_buffer.clear();
+            throughput_buffer.clear();
+            max_throughput = 0;
+        };
+
+        Gui::enabled_if(sim->complete(), [&] {
+            Gui::image_button(restart_texture, BUTTON_SIZE, "Restart", restart_callback);
+        });
+        if (sim->complete() && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_R, false)) { restart_callback(); }
 
         ImGui::SameLine();
 
@@ -440,7 +458,7 @@ class [[nodiscard]] SchedulerApp final
     explicit SchedulerApp(GLFWwindow* window, const std::shared_ptr<Simulations::Scheduler<SchedulePolicy>>& sim)
       : window { window },
         sim { sim },
-        previous_texture { Gui::Texture::load_from_file("resources/previous.png") },
+        restart_texture { Gui::Texture::load_from_file("resources/restart.png") },
         play_texture { Gui::Texture::load_from_file("resources/play.png") },
         next_texture { Gui::Texture::load_from_file("resources/next.png") },
         save_texture { Gui::Texture::load_from_file("resources/save.png") }
@@ -452,7 +470,7 @@ class [[nodiscard]] SchedulerApp final
     std::shared_ptr<Simulations::Scheduler<SchedulePolicy>> sim;
     bool                                                    should_finish      = false;
     bool                                                    stepped_this_frame = false;
-    Gui::Texture                                            previous_texture;
+    Gui::Texture                                            restart_texture;
     Gui::Texture                                            play_texture;
     Gui::Texture                                            next_texture;
     Gui::Texture                                            save_texture;

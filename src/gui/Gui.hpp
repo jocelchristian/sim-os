@@ -695,6 +695,11 @@ class [[nodiscard]] RingBuffer final
         cursor       = (cursor + 1) % capacity;
     }
 
+    void clear()
+    {
+        data.clear();
+    }
+
     [[nodiscard]] auto operator[](const int index) const -> const ImVec2& { return data[index]; }
 
     [[nodiscard]] auto size() const -> int { return data.size(); }

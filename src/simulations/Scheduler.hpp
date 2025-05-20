@@ -38,6 +38,9 @@ struct [[nodiscard]] Scheduler final
     std::size_t             previous_finished_count = 0;
     std::vector<ProcessPtr> finished;
 
+    std::array<std::deque<Os::Process>, MAX_THREADS> processes_backup;
+    bool                                             valid_backup = false;
+
     template<std::invocable<Scheduler&> Policy>
     explicit Scheduler(Policy policy)
       : schedule_policy { policy }
@@ -45,11 +48,26 @@ struct [[nodiscard]] Scheduler final
 
     ~Scheduler() = default;
 
-    Scheduler(const Scheduler&) = delete;
+    Scheduler(const Scheduler&)            = delete;
     Scheduler& operator=(const Scheduler&) = delete;
 
-    Scheduler(Scheduler&&) noexcept = default;
+    Scheduler(Scheduler&&) noexcept            = default;
     Scheduler& operator=(Scheduler&&) noexcept = default;
+
+    void restart()
+    {
+        timer                   = 0;
+        next_thread             = 0;
+        throughput              = 0;
+        previous_finished_count = 0;
+        finished.clear();
+        finished.shrink_to_fit();
+
+        assert(valid_backup && "unreachable");
+        for (const auto& [idx, queue] : std::views::zip(std::views::iota(0UL), processes_backup)) {
+            for (const auto& process : queue) { processes[idx].push_back(std::make_shared<Os::Process>(process)); }
+        }
+    }
 
     [[nodiscard]] auto complete() const -> bool
     {
@@ -63,6 +81,8 @@ struct [[nodiscard]] Scheduler final
 
     void step()
     {
+        valid_backup = true;
+
         for (std::size_t thread_idx = 0; thread_idx < threads_count; ++thread_idx) {
             sidetrack_processes(thread_idx);
             update_waiting_list(thread_idx);
@@ -81,7 +101,7 @@ struct [[nodiscard]] Scheduler final
 
             if (complete()) { cpu_usage.fill(0.0F); };
 
-            throughput              = timer != 0 ? static_cast<double>(finished.size()) / static_cast<double>(timer) : 0.0;
+            throughput = timer != 0 ? static_cast<double>(finished.size()) / static_cast<double>(timer) : 0.0;
             previous_finished_count = finished.size();
         }
 
@@ -93,6 +113,7 @@ struct [[nodiscard]] Scheduler final
     {
         const auto ret =
           processes[next_thread].emplace_back(std::make_shared<Os::Process>(std::forward<Args>(args)...));
+        if (!valid_backup) { processes_backup[next_thread].push_back(*ret); }
         next_thread = (next_thread + 1) % threads_count;
         return ret;
     }
@@ -193,7 +214,7 @@ struct [[nodiscard]] Scheduler final
 
     void update_waiting_list(const std::size_t thread_idx)
     {
-        auto& waits = waiting[thread_idx];
+        auto&                   waits = waiting[thread_idx];
         std::vector<ProcessPtr> to_dispatch;
 
         for (auto it = waits.begin(); it != waits.end();) {
@@ -220,9 +241,7 @@ struct [[nodiscard]] Scheduler final
             }
         }
 
-        for (auto& process: to_dispatch) {
-            dispatch_process_by_first_event(thread_idx, process);
-        }
+        for (auto& process : to_dispatch) { dispatch_process_by_first_event(thread_idx, process); }
     }
 
     void update_running(const std::size_t thread_idx)
@@ -262,7 +281,7 @@ struct [[nodiscard]] FirstComeFirstServedPolicy final
 {
     constexpr static auto POLICY_NAME = "First Come First Served";
 
-    template <typename T>
+    template<typename T>
     void operator()(Scheduler<T>& sim) const
     {
         for (std::size_t thread_idx = 0; thread_idx < sim.threads_count; ++thread_idx) {
@@ -300,8 +319,8 @@ struct [[nodiscard]] RoundRobinPolicy final
             if (next_event.duration > quantum) {
                 next_event.duration -= quantum;
                 const auto new_event = Os::Event {
-                    .kind     = Os::EventKind::Cpu,
-                    .duration = quantum,
+                    .kind           = Os::EventKind::Cpu,
+                    .duration       = quantum,
                     .resource_usage = next_event.resource_usage,
                 };
                 events.push_front(new_event);

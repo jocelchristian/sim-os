@@ -50,8 +50,8 @@ struct [[nodiscard]] Process final
     std::size_t      arrival;
     EventsQueue      events;
 
-    std::optional<std::size_t> start_time;
-    std::optional<std::size_t> finish_time;
+    std::optional<std::size_t> start_time = std::nullopt;
+    std::optional<std::size_t> finish_time = std::nullopt;
 };
 
 } // namespace Os
