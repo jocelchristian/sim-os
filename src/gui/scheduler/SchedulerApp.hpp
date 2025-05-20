@@ -175,7 +175,22 @@ class [[nodiscard]] SchedulerApp final
 
     void draw_save_button() const
     {
-        const auto save_callback = [this] {
+        static bool show_input_box = false;
+
+        if (show_input_box) {
+            const auto file_path = Gui::input_text_popup("Enter file path: ", show_input_box);
+            if (!file_path.has_value()) {
+                return;
+            } else if (file_path->empty()) {
+                Gui::toast(
+                  std::format("Failed to save simulation to {}: invalid path", file_path.value()),
+                  Gui::ToastPosition::BottomRight,
+                  std::chrono::seconds(3),
+                  Gui::ToastLevel::Error
+                );
+                return;
+            }
+
             std::stringstream ss;
             ss << std::format("timer = {}\n", sim->timer);
             ss << std::format("schedule_policy = {}\n", SchedulePolicy::POLICY_NAME);
@@ -189,19 +204,20 @@ class [[nodiscard]] SchedulerApp final
             ss << std::format("avg_throughput = {:.2f}\n", sim->throughput);
             ss << std::format("max_throughput = {:.2f}\n", max_throughput);
 
-            // FIXME: what to do about the file_path here??
-            // maybe introduce ImGuiFileDialog??
-            const auto FILE_PATH = std::format("examples/scheduler/{}_{}.met", SchedulePolicy::POLICY_NAME, sim->timer);
-            Util::write_to_file(FILE_PATH, ss.str());
+            Util::write_to_file(file_path.value(), ss.str());
             Gui::toast(
-              std::format("Saved simulation result to {}", FILE_PATH),
+              std::format("Saved simulation result to {}", file_path.value()),
               Gui::ToastPosition::BottomRight,
               std::chrono::seconds(2),
               Gui::ToastLevel::Info
             );
-        };
+        }
 
-        Gui::enabled_if(sim->complete(), [&] { Gui::image_button(save_texture, BUTTON_SIZE, "Save", save_callback); });
+        if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) { show_input_box = true; }
+
+        Gui::enabled_if(sim->complete(), [&] {
+            Gui::image_button(save_texture, BUTTON_SIZE, "Save", [&] { show_input_box = true; });
+        });
     }
 
     void draw_control_buttons()

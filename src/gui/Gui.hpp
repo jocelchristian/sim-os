@@ -633,6 +633,45 @@ void grid(const std::integral auto count, const ImVec2& size, Callback&& callbac
     Gui::grid(rows, cols, count, size, std::forward<Callback>(callback));
 }
 
+auto input_text_popup(const std::string& label, bool& condition) -> std::optional<std::string>
+{
+    auto center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
+    ImGui::SetNextWindowSize(ImVec2(300, 120), ImGuiCond_Appearing);
+
+    std::string           result;
+    std::array<char, 256> buffer {};
+    ImGui::OpenPopup("##InputPopup");
+    if (ImGui::BeginPopupModal("##InputPopup", &condition, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::SetKeyboardFocusHere();
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            condition = false;
+            ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+            return std::nullopt;
+        }
+
+        ImGui::PushFont(bold_font);
+        Gui::text("{}: ", label);
+        ImGui::SameLine();
+        ImGui::PopFont();
+
+        if (ImGui::InputText("##InputText", buffer.data(), buffer.size(), ImGuiInputTextFlags_EnterReturnsTrue)) {
+            result    = std::string(buffer.data());
+            condition = false;
+
+            ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+            return result;
+        }
+
+        ImGui::EndPopup();
+    }
+
+    return std::nullopt;
+}
+
 namespace Plotting
 {
 
