@@ -44,7 +44,7 @@ class [[nodiscard]] SchedulerApp final
             stepped_this_frame = false;
             if (glfwWindowShouldClose(window) == 1) { quit = true; }
 
-            if (ImGui::IsKeyPressed(ImGuiKey_Enter, false)) { should_finish = true; }
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter, false)) { should_finish = !should_finish; }
 
             if (!sim->complete() && should_finish && !stepped_this_frame) {
                 sim->step();
