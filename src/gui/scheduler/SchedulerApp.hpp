@@ -230,7 +230,7 @@ class [[nodiscard]] SchedulerApp final
         ImGui::SameLine();
 
         Gui::image_button(play_texture, BUTTON_SIZE, "Play", [this] {
-            if (!sim->complete()) { should_finish = true; }
+            if (!sim->complete()) { should_finish = !should_finish; }
         });
 
         ImGui::SameLine();
