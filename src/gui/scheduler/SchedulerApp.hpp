@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 
 #include <backends/imgui_impl_glfw.h>
@@ -75,43 +76,19 @@ class [[nodiscard]] SchedulerApp final
 
                   draw_control_buttons();
 
-                  Gui::grid(
-                    2UL,
-                    3UL,
-                    6UL,
-                    ImGui::GetContentRegionAvail(),
-                    [&](const auto& child_size, const auto& idx) {
-                        switch (idx) {
-                            case 0: {
-                                draw_process_queue("Ready", std::views::join(sim->ready), child_size);
-                                break;
-                            }
-                            case 1: {
-                                draw_process_queue("Waiting", std::views::join(sim->waiting), child_size);
-                                break;
-                            }
-                            case 2: {
-                                draw_running_process(child_size);
-                                break;
-                            }
-                            case 3: {
-                                draw_process_queue("Arrival", std::views::join(sim->processes), child_size);
-                                break;
-                            }
-                            case 4: {
-                                draw_graphs(child_size);
-                                break;
-                            }
-                            case 5: {
-                                draw_statistics(child_size);
-                                break;
-                            }
-                            default: {
-                                assert(false && "unreachable");
-                            }
-                        }
-                    }
-                  );
+                  const std::array<Gui::IndexGridCallback, 6> drawables = {
+                      [&](const auto& size) { draw_process_queue("Ready", std::views::join(sim->ready), size); },
+                      [&](const auto& size) { draw_process_queue("Waiting", std::views::join(sim->waiting), size); },
+                      [&](const auto& size) { draw_running_process(size); },
+                      [&](const auto& size) { draw_process_queue("Arrival", std::views::join(sim->processes), size); },
+                      [&](const auto& size) { draw_graphs(size); },
+                      [&](const auto& size) { draw_statistics(size); }
+                  };
+
+                  const auto available_space = ImGui::GetContentRegionAvail();
+                  Gui::grid(2UL, 3UL, 6UL, available_space, [&](const auto& child_size, const auto& idx) {
+                      drawables[idx](child_size);
+                  });
               }
             );
 
@@ -378,28 +355,15 @@ class [[nodiscard]] SchedulerApp final
 
     void draw_graphs(const ImVec2& child_size)
     {
+        const std::array<Gui::IndexGridCallback, 4> callbacks = {
+            [&](const auto& elem_size) { draw_average_waiting_time_graph(elem_size); },
+            [&](const auto& elem_size) { draw_average_turnaround_time_graph(elem_size); },
+            [&](const auto& elem_size) { draw_cpu_usage_graph(elem_size); },
+            [&](const auto& elem_size) { draw_throughput_graph(elem_size); },
+        };
+
         Gui::grid(2UL, 2UL, 4UL, child_size, [&](const auto& elem_size, const auto& idx) {
-            switch (idx) {
-                case 0: {
-                    draw_average_waiting_time_graph(elem_size);
-                    break;
-                }
-                case 1: {
-                    draw_average_turnaround_time_graph(elem_size);
-                    break;
-                }
-                case 2: {
-                    draw_cpu_usage_graph(elem_size);
-                    break;
-                }
-                case 3: {
-                    draw_throughput_graph(elem_size);
-                    break;
-                }
-                default: {
-                    assert(false && "unreachable");
-                }
-            }
+            callbacks[idx](elem_size);
         });
     }
 

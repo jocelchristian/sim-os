@@ -584,6 +584,8 @@ void toast(
     return { rows, cols };
 }
 
+using IndexGridCallback = std::function<void(const ImVec2&)>;
+
 template<std::invocable<ImVec2, std::size_t> Callback>
 void grid(
   const std::integral auto rows,
@@ -608,7 +610,6 @@ void grid(
         }
     });
 }
-
 
 template<std::invocable<ImVec2, std::size_t> Callback>
 void grid(const std::integral auto count, const ImVec2& size, Callback&& callback)
