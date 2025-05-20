@@ -157,6 +157,50 @@ void shutdown(GLFWwindow* window)
     glfwTerminate();
 }
 
+template<std::invocable Callback>
+void child(const std::string& title, ChildFlags child_flags, WindowFlags window_flags, Callback&& callback)
+{
+    if (ImGui::BeginChild(
+          title.c_str(), ImVec2(0, 0), std::to_underlying(child_flags), std::to_underlying(window_flags)
+        )) {
+        std::invoke(std::forward<Callback>(callback));
+    }
+
+    ImGui::EndChild();
+}
+
+template<std::invocable Callback>
+void child(
+  const std::string& title,
+  const ImVec2&      size,
+  ChildFlags         child_flags,
+  WindowFlags        window_flags,
+  Callback&&         callback
+)
+{
+    if (ImGui::BeginChild(title.c_str(), size, std::to_underlying(child_flags), std::to_underlying(window_flags))) {
+        std::invoke(std::forward<Callback>(callback));
+    }
+
+    ImGui::EndChild();
+}
+
+template<std::invocable Callback>
+void window(const std::string& title, WindowFlags window_flags, Callback&& callback)
+{
+    ImGui::Begin(title.c_str(), nullptr, std::to_underlying(window_flags));
+    std::invoke(std::forward<Callback>(callback));
+    ImGui::End();
+}
+
+void new_frame()
+{
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+}
+
+
 template<typename... Args>
 void text(std::format_string<Args...> fmt, Args&&... args)
 {
@@ -171,27 +215,41 @@ void group(Callback&& callback)
     ImGui::EndGroup();
 }
 
-template<std::invocable<ImVec2> Callback>
+template<typename Callback>
 void title(const std::string& title, const ImVec2& child_size, Callback&& callback)
+  requires(std::invocable<Callback> || std::invocable<Callback, ImVec2>)
 {
     constexpr static auto title_height = 24.0F;
     const auto            title_size   = ImVec2(child_size.x, title_height);
 
     Gui::group([&] {
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBgActive));
-        ImGui::BeginChild(std::format("{}_title", title).c_str(), title_size, 0);
-        ImGui::PushFont(bold_font);
+        Gui::child(std::format("{}_title", title), title_size, ChildFlags::None, WindowFlags::None, [&] {
+            ImGui::PushFont(bold_font);
 
-        ImGui::SetCursorPosX(8.0F);
-        ImGui::SetCursorPosY((title_height - ImGui::GetTextLineHeight()) * 0.5F);
-        ImGui::TextUnformatted(title.c_str());
+            ImGui::SetCursorPosX(8.0F);
+            ImGui::SetCursorPosY((title_height - ImGui::GetTextLineHeight()) * 0.5F);
+            Gui::text("{}", title);
 
-        ImGui::PopFont();
-        ImGui::EndChild();
+            ImGui::PopFont();
+        });
         ImGui::PopStyleColor();
 
-        const auto spacing = ImGui::GetStyle().ItemSpacing.y;
-        std::invoke(std::forward<Callback>(callback), ImVec2(child_size.x, child_size.y - title_height - spacing));
+        const auto spacing        = ImGui::GetStyle().ItemSpacing.y;
+        const auto remaining_size = ImVec2(child_size.x, child_size.y - title_height - spacing);
+        Gui::child(
+          std::format("{}_Child", title),
+          remaining_size,
+          ChildFlags::Border,
+          WindowFlags::None,
+          [callback = std::forward<Callback>(callback), &remaining_size] {
+              if constexpr (std::invocable<Callback, ImVec2>) {
+                  std::invoke(std::move(callback), remaining_size);
+              } else {
+                  std::invoke(std::move(callback));
+              }
+          }
+        );
     });
 }
 
@@ -290,49 +348,6 @@ void center_content_horizontally(const float content_width)
     const auto total_width     = content_width + spacing;
     const auto available_width = ImGui::GetContentRegionAvail().x;
     ImGui::SetCursorPosX((available_width - total_width) * 0.5F);
-}
-
-template<std::invocable Callback>
-void child(const std::string& title, ChildFlags child_flags, WindowFlags window_flags, Callback&& callback)
-{
-    if (ImGui::BeginChild(
-          title.c_str(), ImVec2(0, 0), std::to_underlying(child_flags), std::to_underlying(window_flags)
-        )) {
-        std::invoke(std::forward<Callback>(callback));
-    }
-
-    ImGui::EndChild();
-}
-
-template<std::invocable Callback>
-void child(
-  const std::string& title,
-  const ImVec2&      size,
-  ChildFlags         child_flags,
-  WindowFlags        window_flags,
-  Callback&&         callback
-)
-{
-    if (ImGui::BeginChild(title.c_str(), size, std::to_underlying(child_flags), std::to_underlying(window_flags))) {
-        std::invoke(std::forward<Callback>(callback));
-    }
-
-    ImGui::EndChild();
-}
-
-template<std::invocable Callback>
-void window(const std::string& title, WindowFlags window_flags, Callback&& callback)
-{
-    ImGui::Begin(title.c_str(), nullptr, std::to_underlying(window_flags));
-    std::invoke(std::forward<Callback>(callback));
-    ImGui::End();
-}
-
-void new_frame()
-{
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
 }
 
 enum class TableFlags : std::uint32_t
