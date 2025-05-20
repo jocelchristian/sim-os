@@ -39,7 +39,8 @@ You will then find the following executables inside the build directory:
 - comparator
 
 ## scheduler
-![image](https://github.com/user-attachments/assets/4be887e8-e9a5-4df2-8b3c-d7da7f8bf811)
+![image](https://github.com/user-attachments/assets/c4a851fe-b33f-4cb6-b3cc-1e5e56335df0)
+
 
 
 
