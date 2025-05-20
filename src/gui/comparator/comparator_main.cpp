@@ -144,12 +144,10 @@ static void draw_bar_charts(const std::span<const std::string> labels, const aut
     Gui::grid(keys.size(), ImGui::GetContentRegionAvail(), [&](const auto& subplot_size, const auto& idx) {
         const auto& key = keys[idx];
         plot_opts.y_max = std::ranges::max(values.at(key)) * 1.1;
-        Gui::group([&] {
-            Gui::title(key, subplot_size, [&](const auto& remaining_size) {
-                Gui::child(key, remaining_size, Gui::ChildFlags::Border, Gui::WindowFlags::NoScrollbar, [&] {
-                    Gui::Plotting::plot(std::format("##{}", key), ImGui::GetContentRegionAvail(), plot_opts, [&] {
-                        Gui::Plotting::bars(labels, values.at(key));
-                    });
+        Gui::title(key, subplot_size, [&](const auto& remaining_size) {
+            Gui::child(key, remaining_size, Gui::ChildFlags::Border, Gui::WindowFlags::NoScrollbar, [&] {
+                Gui::Plotting::plot(std::format("##{}", key), ImGui::GetContentRegionAvail(), plot_opts, [&] {
+                    Gui::Plotting::bars(labels, values.at(key));
                 });
             });
         });

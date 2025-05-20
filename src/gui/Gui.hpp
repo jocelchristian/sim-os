@@ -163,26 +163,36 @@ void text(std::format_string<Args...> fmt, Args&&... args)
     ImGui::TextUnformatted(std::format(fmt, std::forward<Args>(args)...).c_str());
 }
 
+template<std::invocable Callback>
+void group(Callback&& callback)
+{
+    ImGui::BeginGroup();
+    std::invoke(std::forward<Callback>(callback));
+    ImGui::EndGroup();
+}
+
 template<std::invocable<ImVec2> Callback>
 void title(const std::string& title, const ImVec2& child_size, Callback&& callback)
 {
     constexpr static auto title_height = 24.0F;
     const auto            title_size   = ImVec2(child_size.x, title_height);
 
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBgActive));
-    ImGui::BeginChild(std::format("{}_title", title).c_str(), title_size, 0);
-    ImGui::PushFont(bold_font);
+    Gui::group([&] {
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBgActive));
+        ImGui::BeginChild(std::format("{}_title", title).c_str(), title_size, 0);
+        ImGui::PushFont(bold_font);
 
-    ImGui::SetCursorPosX(8.0F);
-    ImGui::SetCursorPosY((title_height - ImGui::GetTextLineHeight()) * 0.5F);
-    ImGui::TextUnformatted(title.c_str());
+        ImGui::SetCursorPosX(8.0F);
+        ImGui::SetCursorPosY((title_height - ImGui::GetTextLineHeight()) * 0.5F);
+        ImGui::TextUnformatted(title.c_str());
 
-    ImGui::PopFont();
-    ImGui::EndChild();
-    ImGui::PopStyleColor();
+        ImGui::PopFont();
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
 
-    const auto spacing = ImGui::GetStyle().ItemSpacing.y;
-    std::invoke(std::forward<Callback>(callback), ImVec2(child_size.x, child_size.y - title_height - spacing));
+        const auto spacing = ImGui::GetStyle().ItemSpacing.y;
+        std::invoke(std::forward<Callback>(callback), ImVec2(child_size.x, child_size.y - title_height - spacing));
+    });
 }
 
 class [[nodiscard]] Texture final
@@ -237,14 +247,6 @@ class [[nodiscard]] Texture final
 
     std::optional<GLuint> texture_id;
 };
-
-template<std::invocable Callback>
-void group(Callback&& callback)
-{
-    ImGui::BeginGroup();
-    std::invoke(std::forward<Callback>(callback));
-    ImGui::EndGroup();
-}
 
 template<typename... Args>
 void tooltip(const std::format_string<Args...>& fmt, Args&&... args)
