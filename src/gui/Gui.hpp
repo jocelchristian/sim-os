@@ -508,6 +508,14 @@ void toast(
     });
 }
 
+template<std::invocable Callback>
+void tooltip(Callback&& callback)
+{
+    ImGui::BeginTooltip();
+    std::invoke(std::forward<Callback>(callback));
+    ImGui::EndTooltip();
+}
+
 namespace Plotting
 {
 
@@ -714,6 +722,20 @@ void bars(const std::span<const std::string> labels, const std::span<const doubl
         );
         ImPlot::PlotBars(labels_cstr[idx], &x, &y, 1, BAR_WIDTH);
         ImPlot::PopStyleColor();
+    }
+
+    // Check for hover and display tooltip to show value
+    ImPlotPoint mouse_position = ImPlot::GetPlotMousePos();
+    for (const auto& [idx, position] : std::views::zip(std::views::iota(0UL), positions)) {
+        const auto half_width = BAR_WIDTH / 2.0;
+        const auto x_range    = ImPlotRange(position - half_width, position + half_width);
+        const auto y_range    = ImPlotRange(0, values[idx]);
+
+        if (x_range.Contains(mouse_position.x) && y_range.Contains(mouse_position.y)) {
+            if (ImPlot::IsPlotHovered()) {
+                Gui::tooltip([&] { Gui::text("{}", values[idx]); });
+            }
+        }
     }
 }
 
