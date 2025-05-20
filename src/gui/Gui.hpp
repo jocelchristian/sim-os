@@ -32,6 +32,15 @@ namespace Gui
 
 constexpr static auto GLSL_VERSION = "#version 330";
 
+auto hex_colour_to_imvec4(int hexValue, float alpha = 1.0F) -> ImVec4
+{
+    auto r = static_cast<float>(((hexValue >> 16) & 0xFF)) / 255.0F;
+    auto g = static_cast<float>(((hexValue >> 8) & 0xFF)) / 255.0F;
+    auto b = static_cast<float>((hexValue & 0xFF)) / 255.0F;
+    return { r, g, b, alpha };
+}
+
+
 enum class ChildFlags : std::uint8_t
 {
     None   = 0,

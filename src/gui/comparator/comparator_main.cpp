@@ -139,6 +139,7 @@ static void draw_bar_charts(const std::span<const std::string> labels, const aut
         .maximizable  = false,
     };
 
+    ImPlot::PushStyleColor(ImPlotCol_FrameBg, Gui::hex_colour_to_imvec4(0x181818));
     Gui::Plotting::subplots(
       "##HistogramPlots",
       keys.size(),
@@ -151,6 +152,7 @@ static void draw_bar_charts(const std::span<const std::string> labels, const aut
           });
       }
     );
+    ImPlot::PopStyleColor();
 }
 
 static void usage(const char* executable) { std::println("{}: (<file1.met> <file2.met>)+", executable); }
