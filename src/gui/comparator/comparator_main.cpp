@@ -138,8 +138,6 @@ static void draw_bar_charts(const std::span<const std::string> labels, const aut
         .scrollable   = false,
     };
 
-    ImPlot::PushStyleColor(ImPlotCol_FrameBg, Gui::hex_colour_to_imvec4(0x181818));
-
     Gui::grid(keys.size(), ImGui::GetContentRegionAvail(), [&](const auto& subplot_size, const auto& idx) {
         const auto& key = keys[idx];
         plot_opts.y_max = std::ranges::max(values.at(key)) * 1.1;
@@ -149,8 +147,6 @@ static void draw_bar_charts(const std::span<const std::string> labels, const aut
             });
         });
     });
-
-    ImPlot::PopStyleColor();
 }
 
 static void usage(const char* executable) { std::println("{}: (<file1.met> <file2.met>)+", executable); }
