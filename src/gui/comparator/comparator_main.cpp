@@ -136,7 +136,6 @@ static void draw_bar_charts(const std::span<const std::string> labels, const aut
         .x_min        = -0.5,
         .x_max        = static_cast<double>(labels.size()) - 0.5,
         .scrollable   = false,
-        .maximizable  = false,
     };
 
     ImPlot::PushStyleColor(ImPlotCol_FrameBg, Gui::hex_colour_to_imvec4(0x181818));
