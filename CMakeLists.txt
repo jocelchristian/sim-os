@@ -36,7 +36,7 @@ add_library(imgui
 	${imgui_external_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
 	${imgui_external_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
 )
-target_include_directories(imgui PUBLIC ${imgui_external_SOURCE_DIR})
+target_include_directories(imgui SYSTEM PUBLIC ${imgui_external_SOURCE_DIR})
 target_link_libraries(imgui PUBLIC glfw)
 
 FetchContent_Declare(implot_external
@@ -49,7 +49,7 @@ add_library(implot
 	${implot_external_SOURCE_DIR}/implot.cpp
 	${implot_external_SOURCE_DIR}/implot_items.cpp
 )
-target_include_directories(implot PUBLIC ${implot_external_SOURCE_DIR})
+target_include_directories(implot SYSTEM PUBLIC ${implot_external_SOURCE_DIR})
 target_link_libraries(implot PUBLIC imgui glfw)
 
 add_executable(

@@ -14,6 +14,7 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <implot.h>
 #include <string>
 #include <utility>
@@ -192,6 +193,14 @@ void group(Callback&& callback)
     ImGui::EndGroup();
 }
 
+template<typename... Args>
+void tooltip(const std::format_string<Args...>& fmt, Args&&... args)
+{
+    ImGui::BeginTooltip();
+    Gui::text(fmt, std::forward<Args>(args)...);
+    ImGui::EndTooltip();
+}
+
 template<std::invocable Callback>
 void button(const std::string& label, Callback&& callback)
 {
@@ -213,6 +222,11 @@ void image_button(const Texture& texture, const ImVec2& size, const std::string&
     }
 
     if (ImGui::ImageButton(texture.as_imgui_texture(), size)) { std::invoke(std::forward<Callback>(callback)); }
+
+    constexpr static auto HOVER_THRESHOLD = 0.5F;
+    if (ImGui::IsItemHovered() && ImGui::GetCurrentContext()->HoveredIdTimer >= HOVER_THRESHOLD) {
+        Gui::tooltip("{}", fallback);
+    }
 }
 
 void center_content_horizontally(const float content_width)
@@ -508,14 +522,6 @@ void toast(
     });
 }
 
-template<std::invocable Callback>
-void tooltip(Callback&& callback)
-{
-    ImGui::BeginTooltip();
-    std::invoke(std::forward<Callback>(callback));
-    ImGui::EndTooltip();
-}
-
 namespace Plotting
 {
 
@@ -732,9 +738,7 @@ void bars(const std::span<const std::string> labels, const std::span<const doubl
         const auto y_range    = ImPlotRange(0, values[idx]);
 
         if (x_range.Contains(mouse_position.x) && y_range.Contains(mouse_position.y)) {
-            if (ImPlot::IsPlotHovered()) {
-                Gui::tooltip([&] { Gui::text("{}", values[idx]); });
-            }
+            if (ImPlot::IsPlotHovered()) { Gui::tooltip("{}", values[idx]); }
         }
     }
 }
