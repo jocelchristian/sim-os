@@ -39,7 +39,7 @@ You will then find the following executables inside the build directory:
 - comparator
 
 ## scheduler
-![Uploading image.png…]()
+![image](https://github.com/user-attachments/assets/821d9de8-2a51-4ed9-a60e-b611cf5166c0)
 
 This is a scheduler simulator. It expects you to give it a file to a simulation described in the custom simulation description language. See [sim-lang](#sim-lang) for more info.
 
