@@ -12,6 +12,8 @@ set(CMAKE_CXX_STARNDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(ENABLE_SANITIZERS "Enable address and leak sanitizers" OFF)
+
 add_subdirectory("${CMAKE_SOURCE_DIR}/src/")
 
 FetchContent_Declare(
@@ -20,7 +22,6 @@ FetchContent_Declare(
   GIT_TAG latest
 )
 FetchContent_MakeAvailable(glfw)
-include_directories(${GLFW_INCLUDE_DIRS})
 
 FetchContent_Declare(imgui_external
 	URL https://github.com/ocornut/imgui/archive/refs/tags/v1.90.8.tar.gz
@@ -52,44 +53,3 @@ add_library(implot
 target_include_directories(implot SYSTEM PUBLIC ${implot_external_SOURCE_DIR})
 target_link_libraries(implot PUBLIC imgui glfw)
 
-add_executable(
-    scheduler
-    src/gui/scheduler/scheduler_main.cpp
-)
-target_include_directories(scheduler PRIVATE "${CMAKE_SOURCE_DIR}/src/")
-target_include_directories(scheduler SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/include")
-target_link_libraries(scheduler PRIVATE sim-lang GL glfw imgui implot)
-target_compile_definitions(scheduler PRIVATE $<$<CONFIG:Debug>:DEBUG>)
-target_compile_features(scheduler PRIVATE cxx_std_23)
-target_compile_options(scheduler
-    PRIVATE
-        -Wall
-        -Wextra
-        -Werror
-        -Wconversion
-        -Wno-maybe-uninitialized
-        # $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
-        $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer>
-        $<$<CONFIG:Release>: -O3>)
-# target_link_options(scheduler PRIVATE $<$<CONFIG:Debug>: -fsanitize=address>)
-
-
-add_executable(
-    comparator
-    src/gui/comparator/comparator_main.cpp
-)
-target_include_directories(comparator PRIVATE "${CMAKE_SOURCE_DIR}/src/")
-target_include_directories(comparator SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/include")
-target_link_libraries(comparator PRIVATE GL glfw imgui implot)
-target_compile_definitions(comparator PRIVATE $<$<CONFIG:Debug>:DEBUG>)
-target_compile_features(comparator PRIVATE cxx_std_23)
-target_compile_options(comparator
-    PRIVATE
-        -Wall
-        -Wextra
-        -Werror
-        -Wconversion
-        # $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=leak>
-        $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer>
-        $<$<CONFIG:Release>: -O3>)
-target_link_options(comparator PRIVATE $<$<CONFIG:Debug>: -fsanitize=address>)

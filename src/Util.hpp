@@ -3,13 +3,9 @@
 #include <algorithm>
 #include <charconv>
 #include <filesystem>
-#include <fstream>
-#include <limits>
 #include <optional>
 #include <print>
-#include <random>
 #include <ranges>
-#include <sstream>
 
 #if __clang__ || __GNUC__
 #define TRY(failable)                     \
@@ -56,30 +52,6 @@ namespace Util
     return result;
 }
 
-[[nodiscard]] static auto read_entire_file(const std::filesystem::path& file_path) -> std::optional<std::string>
-{
-    if (!std::filesystem::exists(file_path)) {
-        std::println(stderr, "[ERROR] Unable to read file {}: No such file or directory", file_path.string());
-        return std::nullopt;
-    }
-
-    if (!std::filesystem::is_regular_file(file_path)) {
-        std::println(stderr, "[ERROR] Unable to read file {}: Not a regular file", file_path.string());
-        return std::nullopt;
-    }
-
-    std::ifstream     file(file_path);
-    std::stringstream ss;
-    ss << file.rdbuf();
-    return ss.str();
-}
-
-inline void write_to_file(const std::filesystem::path& file_path, const std::string& content)
-{
-    std::ofstream file(file_path, std::ios::out | std::ios::trunc);
-    file << content;
-}
-
 template<typename... Lambdas>
 struct [[nodiscard]] Visitor : public Lambdas...
 {
@@ -100,22 +72,38 @@ template<typename Alternative>
     return std::nullopt;
 }
 
-[[nodiscard]] inline auto random_float() -> float
+[[nodiscard]] auto read_entire_file(const std::filesystem::path& file_path) -> std::optional<std::string>;
+void               write_to_file(const std::filesystem::path& file_path, const std::string& content);
+
+[[nodiscard]] auto random_float() -> float;
+[[nodiscard]] auto random_natural(const std::size_t min, const std::size_t max) -> std::size_t;
+
+
+[[nodiscard]] constexpr static auto parse_double(const std::string& str) -> std::optional<double>
 {
-    std::random_device                    rd;
-    std::mt19937                          gen(rd());
-    std::uniform_real_distribution<float> dis(0.0F, 1.0F);
-    return dis(gen);
+    double number        = 0.0F;
+    const auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), number);
+    if (ec != std::errc {}) { return std::nullopt; }
+
+    return number;
 }
 
-[[nodiscard]] inline auto random_natural(const std::size_t min, const std::size_t max) -> std::size_t
+[[nodiscard]] constexpr static auto wordify(std::string str) -> std::string
 {
-    if (max == 0) { return 0; }
+    std::ranges::replace(str, '_', ' ');
+    return str;
+}
 
-    std::random_device                         rd;
-    std::mt19937                               gen(rd());
-    std::uniform_int_distribution<std::size_t> dis(min, max);
-    return dis(gen);
+[[nodiscard]] constexpr static auto capitalize(std::string str) -> std::string
+{
+    for (auto word : str | std::views::split(' ')) {
+        if (!word.empty()) {
+            auto first = word.begin();
+            *first     = static_cast<char>(std::toupper(static_cast<unsigned char>(*first)));
+        }
+    }
+
+    return str;
 }
 
 } // namespace Util
