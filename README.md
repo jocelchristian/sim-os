@@ -45,11 +45,13 @@ This is a scheduler simulator. It expects you to give it a file to a simulation 
 
 These are the currently features that the scheduler supports:
 - Stepping the simulation one timer tick at a time
+- Restarting the simulation from the beginning
 - Visualization of the: arrival, ready, waiting queues
 - Visualization of running processes (supports multicore)
 - Plotting of metrics like: cpu usage, waiting time, turnaround time and throughput
 - Different kind of scheduling policy (at compile time though for now)
 - Saving result of the simulation and the compare them with [comparator](#comparator)
+- Changing the schedule policy at runtime (this way you can generate result on the same input for different policies and then compare them)
 
 ### comparator
 ![image](https://github.com/user-attachments/assets/43d0e8ea-32b4-4967-95cc-0769814aeac4)
@@ -66,7 +68,7 @@ Supported features:
 - Specify the max duration of a single event
 - Specify the max arrival time for a process from the start of the timer
 - Spawn random processes or custom processes
-- Restarting the simulation from the beginning
+- Change the schedule policy
 
 ### Examples
 For some examples on the syntax of the language checkout [examples](examples).
