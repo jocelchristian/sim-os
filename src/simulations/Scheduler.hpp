@@ -5,6 +5,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 #include "os/Os.hpp"
@@ -389,6 +390,25 @@ struct [[nodiscard]] RoundRobinPolicy final
 
     std::size_t quantum = 5;
 };
+
+[[nodiscard]] constexpr static auto try_policy_from_str(const std::string_view str) -> std::optional<SchedulePolicy>
+{
+    static const std::unordered_map<std::string_view, SchedulePolicy> map = {
+        { "FCFS", SchedulePolicy::FirstComeFirstServed },
+        { "FIFO", SchedulePolicy::FirstComeFirstServed },
+        { "FirstComeFirstServed", SchedulePolicy::FirstComeFirstServed },
+        { "FirstInFirstOut", SchedulePolicy::FirstComeFirstServed },
+        { "RR", SchedulePolicy::RoundRobin },
+        { "RoundRobin", SchedulePolicy::RoundRobin },
+    };
+
+    if (!map.contains(str)) {
+        std::println("[ERROR] (scheduler) failed to deduce schedule policy from: {}", str);
+        return std::nullopt;
+    }
+
+    return std::make_optional(map.at(str));
+}
 
 [[nodiscard]] constexpr static auto policy_name_from_kind(SchedulePolicy policy) -> std::string
 {

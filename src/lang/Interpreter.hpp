@@ -1,5 +1,6 @@
 #pragma once
 
+#include "simulations/Scheduler.hpp"
 #include <cassert>
 #include <cstring>
 
@@ -215,27 +216,33 @@ class [[nodiscard]] Interpreter final
         };
 
         const auto constant_visitor = [this](const Constant& constant) -> std::optional<Value> {
-            const auto name   = constant.name.lexeme;
-            const auto number = TRY(Util::get<Number>(ast.expression_by_id(constant.value).kind));
+            const auto name = constant.name.lexeme;
 
-            if (name == "max_processes") {
-                sim->max_processes = TRY(Util::parse_number(number.number.lexeme));
-            } else if (name == "max_events_per_process") {
-                sim->max_events_per_process = TRY(Util::parse_number(number.number.lexeme));
-            } else if (name == "max_single_event_duration") {
-                sim->max_single_event_duration = TRY(Util::parse_number(number.number.lexeme));
-            } else if (name == "max_arrival_time") {
-                sim->max_arrival_time = TRY(Util::parse_number(number.number.lexeme));
-            } else if (name == "threads_count") {
-                sim->threads_count = TRY(Util::parse_number(number.number.lexeme));
-            } else {
-                report_error("invalid constant for current simulation: {}", name);
-                report_note(
-                  "available constants are: max_processes, max_events_per_process, max_single_event_duration, "
-                  "max_arrival_time"
-                );
+            const auto expr = ast.expression_by_id(constant.value);
+            if (const auto variable = Util::get<Variable>(expr.kind); variable.has_value()) {
+                if (name == "schedule_policy") {
+                    const auto policy = TRY(Simulations::try_policy_from_str(variable->name.lexeme));
+                    sim->switch_schedule_policy(Simulations::named_scheduler_from_policy(policy));
+                }
+            } else if (const auto number = Util::get<Number>(expr.kind); number.has_value()) {
+                if (name == "max_processes") {
+                    sim->max_processes = TRY(Util::parse_number(number->number.lexeme));
+                } else if (name == "max_events_per_process") {
+                    sim->max_events_per_process = TRY(Util::parse_number(number->number.lexeme));
+                } else if (name == "max_single_event_duration") {
+                    sim->max_single_event_duration = TRY(Util::parse_number(number->number.lexeme));
+                } else if (name == "max_arrival_time") {
+                    sim->max_arrival_time = TRY(Util::parse_number(number->number.lexeme));
+                } else if (name == "threads_count") {
+                    sim->threads_count = TRY(Util::parse_number(number->number.lexeme));
+                } else {
+                    report_error("invalid constant for current simulation: {}", name);
+                    report_note(
+                      "available constants are: max_processes, max_events_per_process, max_single_event_duration, "
+                      "max_arrival_time"
+                    );
+                }
             }
-
 
             return Value();
         };

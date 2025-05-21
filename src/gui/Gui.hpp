@@ -710,11 +710,11 @@ class [[nodiscard]] ComboManager final
 };
 
 template<typename Enum, std::invocable<Enum> Callback>
-void combo(const std::string& name, const std::span<const Enum> values, Callback&& callback)
+void combo(const std::string& name, const std::span<const Enum> values, Enum currently_active, Callback&& callback)
   requires(std::is_scoped_enum_v<Enum>)
 {
     const auto id = ImGui::GetID(name.c_str());
-    ComboManager::register_combo_by_id<Enum>(id);
+    ComboManager::register_combo_by_id<Enum>(id, std::to_underlying(currently_active));
     auto& selected_idx = ComboManager::selected_variant_by_id<Enum>(id);
 
     float max_value_length = 0;

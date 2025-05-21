@@ -1,3 +1,4 @@
+schedule_policy :: FCFS
 threads_count :: 9
 max_processes :: 10000
 max_events_per_process :: 30

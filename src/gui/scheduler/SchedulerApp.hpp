@@ -264,13 +264,18 @@ class [[nodiscard]] SchedulerApp final
 
     void draw_scheduler_policy_picker()
     {
+        // FIXME: Mind that the order here matters, you have to declare these in the same way they are
+        // declared in the enum. Is kinda sus but i don't see how to fix this rn.
         constexpr static auto ITEMS =
-          std::array<Simulations::SchedulePolicy, 2> { Simulations::SchedulePolicy::RoundRobin,
-                                                       Simulations::SchedulePolicy::FirstComeFirstServed };
+          std::array<Simulations::SchedulePolicy, 2> { Simulations::SchedulePolicy::FirstComeFirstServed,
+                                                       Simulations::SchedulePolicy::RoundRobin };
 
-        Gui::combo("##SchedulePolicyPicker", std::span(ITEMS.begin(), ITEMS.end()), [&](const auto& selected) {
-            sim->switch_schedule_policy(Simulations::named_scheduler_from_policy(selected));
-        });
+        Gui::combo(
+          "##SchedulePolicyPicker",
+          std::span(ITEMS.begin(), ITEMS.end()),
+          sim->schedule_policy.kind(),
+          [&](const auto& selected) { sim->switch_schedule_policy(Simulations::named_scheduler_from_policy(selected)); }
+        );
     }
 
     static void draw_process(const auto& process)
