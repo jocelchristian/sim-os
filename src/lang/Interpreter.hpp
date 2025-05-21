@@ -425,14 +425,14 @@ class [[nodiscard]] Interpreter final
     template<typename... Args>
     static auto report_error(const std::string_view message, Args&&... args) -> std::nullopt_t
     {
-        std::println(stderr, "[ERROR] (interpreter) {}", message, std::forward<Args>(args)...);
+        std::println(stderr, "[ERROR] (interpreter) {}", std::format(message, std::forward<Args>(args)...));
         return std::nullopt;
     }
 
     template<typename... Args>
     static auto report_note(const std::string_view message, Args&&... args) -> std::nullopt_t
     {
-        std::println(stderr, "[NOTE] (interpreter) {}", message, std::forward<Args>(args)...);
+        std::println(stderr, "[NOTE] (interpreter) {}", std::format(message, std::forward<Args>(args)...));
         return std::nullopt;
     }
 
