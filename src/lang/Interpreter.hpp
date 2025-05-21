@@ -155,7 +155,8 @@ class [[nodiscard]] Interpreter final
     {
         const auto expression_visitor = [this](const StatementKind& kind) -> std::optional<bool> {
             const auto expr_id = TRY(Util::get<ExpressionId>(kind));
-            return evaluate_expression(ast.expression_by_id(expr_id)).has_value();
+            const auto expr    = ast.expression_by_id(expr_id);
+            return evaluate_expression(expr).has_value();
         };
 
         const auto visitor = Util::make_visitor(expression_visitor);
@@ -193,7 +194,8 @@ class [[nodiscard]] Interpreter final
             result.reserve(list.elements.size());
 
             for (const auto& elem : materialize_expressions(list.elements)) {
-                result.push_back(TRY(evaluate_expression(elem)));
+                const auto expr = TRY(evaluate_expression(elem));
+                result.push_back(expr);
             }
 
             return Value(result);
@@ -205,7 +207,8 @@ class [[nodiscard]] Interpreter final
             result.reserve(tuple.elements.size());
 
             for (const auto& elem : materialize_expressions(tuple.elements)) {
-                result.push_back(TRY(evaluate_expression(elem)));
+                const auto expr = TRY(evaluate_expression(elem));
+                result.push_back(expr);
             }
 
             return Value(result);
@@ -298,25 +301,19 @@ class [[nodiscard]] Interpreter final
         std::deque<Os::Event> events = {};
         for (const auto& tuple_value : list) {
             const auto tuple = TRY(tuple_value.as_value_list_or([&] -> std::optional<std::vector<Value>> {
-                report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
                 return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
             }));
 
             const auto event_kind_str = TRY(tuple[0].as_string_or([&] -> std::optional<std::string> {
-                report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
                 return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
             }));
 
             const auto duration = TRY(tuple[1].as_number_or([&] -> std::optional<std::size_t> {
-                report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
                 return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
             }));
 
             const auto maybe_event_kind = Os::event_kind_try_from_str(event_kind_str);
-            if (!maybe_event_kind) {
-                report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
-                return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
-            }
+            if (!maybe_event_kind) { return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])"); }
 
             events.push_back(Os::Event { .kind           = *maybe_event_kind,
                                          .duration       = duration,
@@ -356,7 +353,11 @@ class [[nodiscard]] Interpreter final
 
         const auto list_value = TRY(evaluate_expression(arguments[argument_count++]));
         const auto list       = TRY(list_value.as_value_list_or([&] -> std::optional<std::vector<Value>> {
-            report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
+            report_error(
+              "mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`",
+              argument_count,
+              NAME
+            );
             return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
         }));
 
@@ -423,14 +424,14 @@ class [[nodiscard]] Interpreter final
     }
 
     template<typename... Args>
-    static auto report_error(const std::string_view message, Args&&... args) -> std::nullopt_t
+    static auto report_error(const std::format_string<Args...>& message, Args&&... args) -> std::nullopt_t
     {
         std::println(stderr, "[ERROR] (interpreter) {}", std::format(message, std::forward<Args>(args)...));
         return std::nullopt;
     }
 
     template<typename... Args>
-    static auto report_note(const std::string_view message, Args&&... args) -> std::nullopt_t
+    static auto report_note(const std::format_string<Args...>& message, Args&&... args) -> std::nullopt_t
     {
         std::println(stderr, "[NOTE] (interpreter) {}", std::format(message, std::forward<Args>(args)...));
         return std::nullopt;

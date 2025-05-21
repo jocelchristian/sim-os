@@ -88,7 +88,8 @@ auto Lexer::keyword_or_identifier() -> std::optional<Token>
 
 auto Lexer::string_literal() -> std::optional<Token>
 {
-    assert((*next())[0] == '"' && "expected \"");
+    [[maybe_unused]] const auto start_literal = next();
+    assert(start_literal.value() == '"' && "expected \"");
 
     const auto start_idx = cursor;
     auto       end_idx   = cursor;

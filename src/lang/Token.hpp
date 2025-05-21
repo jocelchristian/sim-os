@@ -99,6 +99,7 @@ struct std::formatter<Interpreter::TokenKind>
                 }
                 default: {
                     assert(false && "unreachable");
+                    return "";
                 }
             }
         };
