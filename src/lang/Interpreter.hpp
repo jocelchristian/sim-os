@@ -70,10 +70,10 @@ struct [[nodiscard]] Value final
 
     [[nodiscard]] constexpr auto is_string() const -> bool { return std::holds_alternative<std::string>(value); }
 
-    [[nodiscard]] constexpr auto as_string() const -> std::string_view { return Util::get<std::string>(value).value(); }
+    [[nodiscard]] constexpr auto as_string() const -> std::string { return Util::get<std::string>(value).value(); }
 
     template<std::invocable Callback>
-    [[nodiscard]] constexpr auto as_string_or(Callback callback) const -> std::optional<std::string_view>
+    [[nodiscard]] constexpr auto as_string_or(Callback callback) const -> std::optional<std::string>
     {
         return is_string() ? as_string() : callback();
     }
@@ -302,7 +302,7 @@ class [[nodiscard]] Interpreter final
                 return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
             }));
 
-            const auto event_kind_str = TRY(tuple[0].as_string_or([&] -> std::optional<std::string_view> {
+            const auto event_kind_str = TRY(tuple[0].as_string_or([&] -> std::optional<std::string> {
                 report_error("mismatched type for argument #{} of builtin `{}`: expected type `List<Tuple: Event>`");
                 return report_note("(e.g. [(event_type: `Io` or `Cpu`, duration: int)])");
             }));
@@ -334,7 +334,7 @@ class [[nodiscard]] Interpreter final
 
         std::size_t argument_count     = 0;
         const auto  process_name_value = TRY(evaluate_expression(arguments[argument_count++]));
-        const auto  process_name       = TRY(process_name_value.as_string_or([&] -> std::optional<std::string_view> {
+        const auto  process_name       = TRY(process_name_value.as_string_or([&] -> std::optional<std::string> {
             return report_error(
               "mismatched type for argument #{} of builting `{}`: expected type `string`", argument_count - 1, NAME
             );

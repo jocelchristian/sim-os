@@ -24,9 +24,10 @@ enum class EventKind : std::uint8_t
       "[ERROR] Exhaustive handling of all enum variants for EventKind is required"
     );
 
-    if (Util::to_lower(str) == "cpu") {
+    auto lowered = Util::to_lower(str);
+    if (lowered == "cpu") {
         return EventKind::Cpu;
-    } else if (Util::to_lower(str) == "io") {
+    } else if (lowered == "io") {
         return EventKind::Io;
     }
 
@@ -45,12 +46,12 @@ struct [[nodiscard]] Process final
 {
     using EventsQueue = std::deque<Event>;
 
-    std::string_view name;
-    std::size_t      pid;
-    std::size_t      arrival;
-    EventsQueue      events;
+    std::string name;
+    std::size_t pid;
+    std::size_t arrival;
+    EventsQueue events;
 
-    std::optional<std::size_t> start_time = std::nullopt;
+    std::optional<std::size_t> start_time  = std::nullopt;
     std::optional<std::size_t> finish_time = std::nullopt;
 };
 
