@@ -4,9 +4,8 @@
 #include <format>
 #include <functional>
 #include <limits>
-#include <memory>
-#include <type_traits>
 #include <utility>
+#include <cassert>
 
 #include "os/Os.hpp"
 
@@ -43,6 +42,7 @@ struct std::formatter<Simulations::SchedulePolicy>
                 }
                 default: {
                     assert(false && "unreachable");
+                    return "";
                 }
             }
         };
@@ -431,7 +431,7 @@ struct [[nodiscard]] RoundRobinPolicy final
 }
 
 template<typename... PolicyArgs>
-[[nodiscard]] constexpr static auto named_scheduler_from_policy(SchedulePolicy policy, PolicyArgs&&... args)
+[[nodiscard]] constexpr static auto named_scheduler_from_policy(SchedulePolicy policy, PolicyArgs&&... args) -> NamedSchedulePolicy
 {
     static_assert(
       std::to_underlying(SchedulePolicy::Count) == 2,
@@ -450,6 +450,10 @@ template<typename... PolicyArgs>
             assert(false && "unreachable");
         }
     }
+
+    // NOTE: hack to please the stupid code analysis
+    assert(false && "unreachable");
+    return NamedSchedulePolicy("", SchedulePolicy::FirstComeFirstServed, FirstComeFirstServedPolicy {});
 }
 
 
