@@ -12,7 +12,7 @@ set(CMAKE_CXX_STARNDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-option(ENABLE_SANITIZERS "Enable address and leak sanitizers" OFF)
+option(ENABLE_SANITIZERS "Enable undefined, address and leak sanitizers" OFF)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/src/")
 

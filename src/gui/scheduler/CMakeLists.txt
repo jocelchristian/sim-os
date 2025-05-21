@@ -16,10 +16,10 @@ target_compile_options(scheduler
         -Wconversion
         -Wno-maybe-uninitialized
         $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer>
-        $<$<AND:$<CONFIG:Debug>,$<BOOL:${ENABLE_SANITIZERS}>>: -fsanitize=address -fsanitize=leak>
+        $<$<AND:$<CONFIG:Debug>,$<BOOL:${ENABLE_SANITIZERS}>>: -fsanitize=undefined,address,leak>
         $<$<CONFIG:Release>: -O3>)
 target_link_options(scheduler
     PRIVATE
         $<$<CONFIG:Debug>:>
-        $<$<AND:$<CONFIG:Debug>,$<BOOL:${ENABLE_SANITIZERS}>>: -fsanitize=address -fsanitize=leak>
+        $<$<AND:$<CONFIG:Debug>,$<BOOL:${ENABLE_SANITIZERS}>>: -fsanitize=undefined,address,leak>
 )

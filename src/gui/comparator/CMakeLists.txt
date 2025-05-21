@@ -15,10 +15,10 @@ target_compile_options(comparator
         -Werror
         -Wconversion
         $<$<CONFIG:Debug>: -ggdb -O0 -fno-omit-frame-pointer>
-        $<$<AND:$<CONFIG:Debug>,$<BOOL:${ENABLE_SANITIZERS}>>: -fsanitize=address -fsanitize=leak>
+        $<$<AND:$<CONFIG:Debug>,$<BOOL:${ENABLE_SANITIZERS}>>: -fsanitize=undefined,address,leak>
         $<$<CONFIG:Release>: -O3>)
 target_link_options(comparator
     PRIVATE
         $<$<CONFIG:Debug>:>
-        $<$<AND:$<CONFIG:Debug>,$<BOOL:${ENABLE_SANITIZERS}>>: -fsanitize=address -fsanitize=leak>
+        $<$<AND:$<CONFIG:Debug>,$<BOOL:${ENABLE_SANITIZERS}>>: -fsanitize=undefined,address,leak>
 )
