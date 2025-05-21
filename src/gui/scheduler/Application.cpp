@@ -158,7 +158,7 @@ void Application::draw_save_button() const
     if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) { show_input_box = true; }
 
     Gui::enabled_if(sim->complete(), [&] {
-        Gui::image_button(save_texture, BUTTON_SIZE, "Save Results", [&] { show_input_box = true; });
+        Gui::image_button(save_texture, BUTTON_SIZE, "[Ctrl+S]ave Results", [&] { show_input_box = true; });
     });
 }
 
@@ -183,19 +183,19 @@ void Application::draw_control_buttons()
     };
 
     Gui::enabled_if(sim->complete(), [&] {
-        Gui::image_button(restart_texture, BUTTON_SIZE, "Restart", restart_callback);
+        Gui::image_button(restart_texture, BUTTON_SIZE, "[Ctrl+R]estart", restart_callback);
     });
     if (sim->complete() && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_R, false)) { restart_callback(); }
 
     ImGui::SameLine();
 
-    Gui::image_button(play_texture, BUTTON_SIZE, "Play", [this] {
+    Gui::image_button(play_texture, BUTTON_SIZE, "[Enter] Play", [this] {
         if (!sim->complete()) { should_finish = !should_finish; }
     });
 
     ImGui::SameLine();
 
-    Gui::image_button(next_texture, BUTTON_SIZE, "Next", [this] {
+    Gui::image_button(next_texture, BUTTON_SIZE, "[Space] Next", [this] {
         if (!sim->complete()) { sim->step(); }
     });
 }
