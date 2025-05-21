@@ -7,6 +7,10 @@ These are the planned/currently implemented simulations:
 - [x] scheduler
 - [ ] virtual memory
 
+## Video
+https://github.com/user-attachments/assets/0d1f474b-c30a-4c90-8175-ac33cef078e5
+
+
 # Dependencies
 - CMake
 - GCC 14+
