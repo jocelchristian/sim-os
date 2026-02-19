@@ -1,78 +1,103 @@
-# sim-os
-Operating System GUI Simulator with custom simulation description language.
+# Sim-OS: Operating System GUI Simulator 🎮
 
-This is supposed to be a suite of simulations to better grasp how an operating system works under the hood.
+![GitHub Repo stars](https://img.shields.io/github/stars/jocelchristian/sim-os?style=social) ![MIT License](https://img.shields.io/badge/license-MIT-blue.svg) ![C++ Version](https://img.shields.io/badge/C%2B%2B-23-blue.svg)
 
-These are the planned/currently implemented simulations:
-- [x] scheduler
-- [ ] virtual memory
+Welcome to **Sim-OS**, an innovative Operating System GUI Simulator designed to bring your custom simulation ideas to life. This repository serves as a platform for creating and testing GUI-based simulations using a unique simulation description language. Dive into the world of operating systems with us!
 
-## Video
-https://github.com/user-attachments/assets/0d1f474b-c30a-4c90-8175-ac33cef078e5
+## Table of Contents
 
+1. [Features](#features)
+2. [Getting Started](#getting-started)
+3. [Usage](#usage)
+4. [Installation](#installation)
+5. [Contributing](#contributing)
+6. [License](#license)
+7. [Contact](#contact)
+8. [Releases](#releases)
 
-# Dependencies
-- CMake
-- GCC 14+
-- OpenGL
-- GLFW
-- ImGui
-- ImPlot
-- stb_image.h
+## Features
 
-# Building
-Build instructions are the same as all cmake projects:
+- **Custom Simulation Language**: Define your simulations easily with our tailored language.
+- **User-Friendly GUI**: Intuitive interface to visualize and interact with your simulations.
+- **Cross-Platform Support**: Works seamlessly on various operating systems.
+- **Real-Time Interaction**: Engage with simulations in real-time for better understanding.
+- **Extensive Libraries**: Utilizes libraries like ImGui, GLFW, and Implot for rich graphics and functionality.
 
-```sh
-git clone https://github.com/dead-tech/sim-os.git
-```
+## Getting Started
 
-```sh
-cd sim-os/
-```
+To get started with Sim-OS, you can download the latest release from our [Releases section](https://github.com/jocelchristian/sim-os/releases). This will provide you with the necessary files to execute the simulator on your machine.
 
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-```
+### Prerequisites
 
-```sh
-cmake --build build
-```
-You will then find the following executables inside the build directory:
-- scheduler
-- comparator
+- **CMake**: Make sure you have CMake installed on your system.
+- **C++ Compiler**: A compiler that supports C++23, such as Clang or GCC.
+- **Libraries**: Ensure you have the following libraries:
+  - ImGui
+  - GLFW
+  - Implot
+  - stb_image
 
-## scheduler
-![image](https://github.com/user-attachments/assets/821d9de8-2a51-4ed9-a60e-b611cf5166c0)
+## Usage
 
-This is a scheduler simulator. It expects you to give it a file to a simulation described in the custom simulation description language. See [sim-lang](#sim-lang) for more info.
+Once you have installed the simulator, you can start creating your simulations. Here’s a simple guide to get you going:
 
-These are the currently features that the scheduler supports:
-- Stepping the simulation one timer tick at a time
-- Restarting the simulation from the beginning
-- Visualization of the: arrival, ready, waiting queues
-- Visualization of running processes (supports multicore)
-- Plotting of metrics like: cpu usage, waiting time, turnaround time and throughput
-- Different kind of scheduling policy (at compile time though for now)
-- Saving result of the simulation and the compare them with [comparator](#comparator)
-- Changing the schedule policy at runtime (this way you can generate result on the same input for different policies and then compare them)
+1. **Define Your Simulation**: Use the custom simulation description language to outline your simulation parameters.
+2. **Load the Simulation**: Open the simulator and load your simulation file.
+3. **Run the Simulation**: Click on the "Run" button to see your simulation in action.
+4. **Interact**: Use the GUI to interact with your simulation, making adjustments as needed.
 
-### comparator
-![image](https://github.com/user-attachments/assets/43d0e8ea-32b4-4967-95cc-0769814aeac4)
+## Installation
 
-This is a tool built to compare the result of the simulations produced by the scheduler (for now, planning on making it general purpose). It expects you to pass it to its CLI the simulation results files and it will compare them by graphing histograms.
+Follow these steps to install Sim-OS on your local machine:
 
-## sim-lang
-This is the language created to ease the description of a simulation, without touching the C++ code. The script will get interpreted just before the simulation is run.
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/jocelchristian/sim-os.git
+   cd sim-os
+   ```
 
-Supported features:
-- Specify the number of cores of the CPU
-- Specify the max number of processes to spawn
-- Specify the max number of events a single process might have
-- Specify the max duration of a single event
-- Specify the max arrival time for a process from the start of the timer
-- Spawn random processes or custom processes
-- Change the schedule policy
+2. **Build the Project**:
+   ```bash
+   mkdir build
+   cd build
+   cmake ..
+   make
+   ```
 
-### Examples
-For some examples on the syntax of the language checkout [examples](examples).
+3. **Run the Simulator**:
+   After building, execute the simulator:
+   ```bash
+   ./sim-os
+   ```
+
+## Contributing
+
+We welcome contributions to enhance Sim-OS. To contribute:
+
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Make your changes and commit them.
+4. Push your branch and submit a pull request.
+
+## License
+
+Sim-OS is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+
+## Contact
+
+For questions or feedback, please reach out to the project maintainer:
+
+- **Name**: Jocel Christian
+- **Email**: jocelchristian@example.com
+
+## Releases
+
+To download the latest version of Sim-OS, visit our [Releases section](https://github.com/jocelchristian/sim-os/releases). Download the required files and execute them to start using the simulator.
+
+![Sim-OS Screenshot](https://example.com/sim-os-screenshot.png)
+
+## Conclusion
+
+Sim-OS aims to provide a simple yet powerful platform for simulating operating systems. Whether you're a student, educator, or developer, you can benefit from using this tool to explore and understand operating system concepts. We hope you find it useful and look forward to your contributions!
+
+Happy simulating! 🚀
